@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useCycle } from '../../context/CycleContext';
+import { CycleRecord } from '../../types/cycle';
+import { addDays } from '../../utils/cycleCalculations';
 import {
   Calendar,
   Sparkles,
@@ -20,7 +22,7 @@ interface OnboardingFlowProps {
 }
 
 export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) => {
-  const { settings, updateFemaleProfileInDb } = useCycle();
+  const { settings, updateFemaleProfileInDb, addOrUpdateCycle } = useCycle();
 
   const [step, setStep] = useState<number>(1);
   const [name] = useState<string>(settings.trackerName && settings.trackerName !== 'Emma' ? settings.trackerName : 'You');
@@ -64,6 +66,19 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
       secretCode,
       onboardingCompleted: true,
     });
+
+    if (lastPeriodDate) {
+      const initialCycle: CycleRecord = {
+        id: `user_cycle_${lastPeriodDate}_${Date.now()}`,
+        startDate: lastPeriodDate,
+        endDate: addDays(lastPeriodDate, Number(periodDuration || 5) - 1),
+        cycleLengthDays: Number(cycleLength || 28),
+        periodDurationDays: Number(periodDuration || 5),
+        isConfirmed: true,
+        notes: 'Initial period from setup',
+      };
+      addOrUpdateCycle(initialCycle);
+    }
 
     confetti({
       particleCount: 50,

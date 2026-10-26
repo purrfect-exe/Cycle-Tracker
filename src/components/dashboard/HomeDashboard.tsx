@@ -65,6 +65,7 @@ export const HomeDashboard: React.FC = () => {
 
   const todayLog = logs.find((l: DailyLog) => l.date === currentDate);
   const analytics = cycleStatus.analytics;
+  const hasAnyData = cycles.length > 0 || logs.length > 0 || Boolean(settings.lastPeriodStartDate);
 
   return (
     <div className="space-y-5 animate-smooth-appear font-sans">
@@ -103,10 +104,10 @@ export const HomeDashboard: React.FC = () => {
                   Cycle Day
                 </span>
                 <span className="text-4xl font-extrabold text-[#261C19] tabular-nums my-0.5">
-                  {cycles.length === 0 && !settings.lastPeriodStartDate ? '—' : cycleStatus.currentCycleDay}
+                  {!hasAnyData ? '—' : cycleStatus.currentCycleDay}
                 </span>
                 <span className="text-xs text-[#7A5B4F] font-medium">
-                  {cycles.length === 0 && !settings.lastPeriodStartDate ? 'Awaiting Log' : `of ${cycleStatus.totalCycleLength} days`}
+                  {!hasAnyData ? 'Awaiting Log' : `of ${cycleStatus.totalCycleLength} days`}
                 </span>
               </div>
             </div>
@@ -131,7 +132,7 @@ export const HomeDashboard: React.FC = () => {
               </div>
 
               <div className="text-2xl font-bold text-[#261C19] mt-1">
-                {cycles.length === 0 && !settings.lastPeriodStartDate
+                {!hasAnyData
                   ? 'No period logged yet'
                   : cycleStatus.daysUntilNextPeriod === 0
                   ? 'Expected Today'
@@ -140,7 +141,7 @@ export const HomeDashboard: React.FC = () => {
 
               {/* Estimated Variability Date Range Window */}
               <div className="text-xs text-[#7A5B4F] mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                {analytics.sampleSize === 0 && !settings.lastPeriodStartDate ? (
+                {!hasAnyData ? (
                   <span className="text-[11px] text-[#7A5B4F]">
                     Predictions will calibrate automatically once you log your period dates.
                   </span>
@@ -261,7 +262,7 @@ export const HomeDashboard: React.FC = () => {
             } else if (fDay.isFertileWindow) {
               bgClass = 'bg-[#FEF4EC] border-[#F3CD97] text-[#C25B23] font-medium';
               label = 'Peak';
-            } else if (cycles.length === 0 && !settings.lastPeriodStartDate) {
+            } else if (!hasAnyData) {
               label = fDay.isToday ? 'Today' : '—';
             }
 

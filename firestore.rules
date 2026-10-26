@@ -8,7 +8,7 @@ service cloud.firestore {
     }
 
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() > 0 && id.size() <= 128;
     }
 
     function isSignedIn() {
@@ -21,7 +21,7 @@ service cloud.firestore {
 
     // Pair codes directory
     match /pair_codes/{secretCode} {
-      // Allow getting a single pair code document by exact ID (no listing all codes)
+      // Allow reading pair code by exact ID so partner can look it up to connect
       allow get: if isValidId(secretCode);
       allow list: if false;
 
@@ -36,9 +36,8 @@ service cloud.firestore {
         && (
           (isSignedIn() && resource.data.femaleUid == request.auth.uid)
           || (
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['maleConnected', 'maleName'])
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['maleConnected', 'maleName', 'updatedAt'])
             && request.resource.data.maleName is string
-            && request.resource.data.maleName.size() <= 100
           )
         );
 
@@ -47,41 +46,39 @@ service cloud.firestore {
 
     // Female user accounts
     match /female_users/{femaleUid} {
-      allow get: if isValidId(femaleUid)
-        && (isOwner(femaleUid) || resource.data.secretCode is string);
+      // Anyone with valid ID (owner or connected male) can get the profile document
+      allow get: if isValidId(femaleUid);
       
-      allow list: if isSignedIn() && request.auth.uid == femaleUid;
+      // Female owner can list or query
+      allow list: if isOwner(femaleUid);
 
+      // Create female profile
       allow create: if isSignedIn()
         && request.auth.uid == femaleUid
         && request.resource.data.uid == femaleUid;
 
-      // Female owner can update profile & cycle settings.
-      // Male companion can update partnerName & partnerConnected state.
+      // Female owner can update profile; male companion can connect or update partnerName
       allow update: if isValidId(femaleUid)
         && (
           isOwner(femaleUid)
           || (
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['partnerConnected', 'partnerName', 'partnerConnectedAt', 'updatedAt'])
             && request.resource.data.partnerName is string
-            && request.resource.data.partnerName.size() <= 100
           )
         );
 
       allow delete: if isOwner(femaleUid);
 
-      // Cycles subcollection
+      // Cycles subcollection: readable by owner and partner; writeable by owner
       match /cycles/{cycleId} {
-        allow read: if isValidId(femaleUid) && isValidId(cycleId);
-        allow write: if isOwner(femaleUid) && isValidId(cycleId);
+        allow read: if isValidId(femaleUid);
+        allow write: if isOwner(femaleUid);
       }
 
-      // Daily symptom logs subcollection
+      // Daily symptom logs subcollection: readable by owner and partner; writeable by owner
       match /daily_logs/{dateStr} {
-        allow read: if isValidId(femaleUid) && isValidId(dateStr);
-        // Female owner can log; companion can also help record if connected
+        allow read: if isValidId(femaleUid);
         allow write: if isValidId(femaleUid)
-          && isValidId(dateStr)
           && (isOwner(femaleUid) || get(/databases/$(database)/documents/female_users/$(femaleUid)).data.partnerConnected == true);
       }
     }

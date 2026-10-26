@@ -12,6 +12,7 @@ export interface CycleRecord {
   periodDurationDays: number;
   notes?: string;
   isConfirmed: boolean;
+  isSampleDemo?: boolean;
 }
 
 export interface DailyLog {
@@ -26,6 +27,7 @@ export interface DailyLog {
   symptoms: string[]; // e.g. ['Bloating', 'Tender Breasts', 'Acne', 'Headache', 'Cravings']
   customNote?: string;
   updatedAt: string;
+  isSampleDemo?: boolean;
 }
 
 export interface SymptomFrequencyItem {

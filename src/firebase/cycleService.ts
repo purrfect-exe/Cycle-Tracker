@@ -43,9 +43,23 @@ export interface PairCodeDoc {
  * Generate a 4-character unique secret code with alphanumeric (case-sensitive) and symbols.
  * No 'BLOOM' prefix. Exactly 4 characters.
  */
+export function sanitizeForFirestore<T extends Record<string, any>>(obj: T): Partial<T> {
+  const clean: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      clean[key] = value;
+    }
+  }
+  return clean as Partial<T>;
+}
+
+/**
+ * Generate a 4-character unique uppercase secret code without ambiguous characters or symbols.
+ * Case-insensitive, easy to type on phones. Exactly 4 characters.
+ */
 export async function generateUniqueSecretCode(): Promise<string> {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789#@!&*?+$';
-  for (let attempt = 0; attempt < 12; attempt++) {
+  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+  for (let attempt = 0; attempt < 15; attempt++) {
     let candidate = '';
     for (let i = 0; i < 4; i++) {
       candidate += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -56,12 +70,11 @@ export async function generateUniqueSecretCode(): Promise<string> {
       if (!snap.exists()) {
         return candidate;
       }
-    } catch (e) {
+    } catch {
       return candidate;
     }
   }
-  // Fallback 4 chars
-  return '7#Kq';
+  return '7K9M';
 }
 
 /**
@@ -231,7 +244,8 @@ export async function saveDailyLogToFirestore(
 ): Promise<void> {
   const logRef = doc(db, 'female_users', femaleUid, 'daily_logs', log.date);
   try {
-    await setDoc(logRef, log, { merge: true });
+    const cleanLog = sanitizeForFirestore(log);
+    await setDoc(logRef, cleanLog, { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `female_users/${femaleUid}/daily_logs/${log.date}`);
   }
@@ -246,7 +260,8 @@ export async function saveCycleToFirestore(
 ): Promise<void> {
   const cycleRef = doc(db, 'female_users', femaleUid, 'cycles', cycle.id);
   try {
-    await setDoc(cycleRef, cycle, { merge: true });
+    const cleanCycle = sanitizeForFirestore(cycle);
+    await setDoc(cycleRef, cleanCycle, { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `female_users/${femaleUid}/cycles/${cycle.id}`);
   }
@@ -293,7 +308,7 @@ export async function unlinkPartner(femaleUid: string, secretCode: string): Prom
   }
 }
 
-const SAMPLE_CYCLE_IDS = new Set([
+const EXACT_LEGACY_SAMPLE_CYCLE_IDS = new Set([
   'cycle-2026-10',
   'cycle-2026-09',
   'cycle-2026-08',
@@ -302,7 +317,7 @@ const SAMPLE_CYCLE_IDS = new Set([
   'cycle-2026-05',
 ]);
 
-const SAMPLE_LOG_IDS = new Set([
+const EXACT_LEGACY_SAMPLE_LOG_IDS = new Set([
   'log-2026-10-24',
   'log-2026-10-23',
   'log-2026-10-22',
@@ -321,6 +336,7 @@ const SAMPLE_LOG_IDS = new Set([
 
 /**
  * Remove any demo/sample data that may have been saved to a real user's database.
+ * Strictly avoids deleting user-created cycles or logs.
  */
 export async function purgeSampleDataFromRealUser(femaleUid: string): Promise<void> {
   if (!femaleUid || femaleUid === 'sample-female-uid') return;
@@ -328,7 +344,12 @@ export async function purgeSampleDataFromRealUser(femaleUid: string): Promise<vo
   try {
     const cyclesSnap = await getDocs(collection(db, 'female_users', femaleUid, 'cycles'));
     for (const docSnap of cyclesSnap.docs) {
-      if (SAMPLE_CYCLE_IDS.has(docSnap.id) || docSnap.id.startsWith('cycle-2026-')) {
+      const data = docSnap.data();
+      const isSample =
+        docSnap.id.startsWith('sample-') ||
+        EXACT_LEGACY_SAMPLE_CYCLE_IDS.has(docSnap.id) ||
+        data.isSampleDemo === true;
+      if (isSample) {
         await deleteDoc(docSnap.ref);
       }
     }
@@ -336,7 +357,11 @@ export async function purgeSampleDataFromRealUser(femaleUid: string): Promise<vo
     const logsSnap = await getDocs(collection(db, 'female_users', femaleUid, 'daily_logs'));
     for (const docSnap of logsSnap.docs) {
       const data = docSnap.data();
-      if (SAMPLE_LOG_IDS.has(data.id) || (data.customNote && data.customNote.includes('quiet dinner tonight'))) {
+      const isSample =
+        docSnap.id.startsWith('sample-') ||
+        (EXACT_LEGACY_SAMPLE_LOG_IDS.has(data.id) && data.customNote && data.customNote.includes('quiet dinner tonight')) ||
+        data.isSampleDemo === true;
+      if (isSample) {
         await deleteDoc(docSnap.ref);
       }
     }

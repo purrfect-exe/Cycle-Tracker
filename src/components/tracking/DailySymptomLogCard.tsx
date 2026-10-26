@@ -83,7 +83,7 @@ export const DailySymptomLogCard: React.FC<DailySymptomLogCardProps> = ({
 
   const handleSave = () => {
     const updatedLog: DailyLog = {
-      id: existingLog?.id || `log-${activeDate}-${Date.now()}`,
+      id: existingLog?.id || `user_log_${activeDate}_${Date.now()}`,
       date: activeDate,
       flow,
       cramps,
@@ -92,7 +92,7 @@ export const DailySymptomLogCard: React.FC<DailySymptomLogCardProps> = ({
       energyLabel: energyInfo.label,
       moods,
       symptoms,
-      customNote: customNote.trim() || undefined,
+      customNote: customNote.trim() ? customNote.trim() : undefined,
       updatedAt: new Date().toISOString(),
     };
 

@@ -7,13 +7,17 @@ import {
   setPersistence,
   browserLocalPersistence,
 } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { initializeFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 
-/* CRITICAL: Must pass databaseId */
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+/* CRITICAL: Must pass databaseId and ignoreUndefinedProperties */
+export const db = initializeFirestore(
+  app,
+  { ignoreUndefinedProperties: true },
+  firebaseConfig.firestoreDatabaseId
+);
 export const auth = getAuth(app);
 // Enforce browser local persistence so user remains logged in across refreshes
 setPersistence(auth, browserLocalPersistence).catch((err) => {

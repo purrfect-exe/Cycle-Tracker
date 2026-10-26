@@ -206,7 +206,11 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setFirebaseUser(user);
-      if (user && userRole === 'female' && !isSampleDemo) {
+      if (user && !isSampleDemo) {
+        // Any Google-authenticated user is a female account
+        setUserRole('female');
+        localStorage.setItem(`${STORAGE_PREFIX}_role`, 'female');
+
         try {
           // Remove any accidental sample data from real user's database
           await purgeSampleDataFromRealUser(user.uid);
@@ -216,6 +220,17 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             user.email || '',
             user.displayName || 'You'
           );
+
+          // Save session so state persists across page reloads
+          const session: PersistentSession = {
+            role: 'female',
+            femaleUid: profile.uid,
+            trackerName: profile.displayName,
+            partnerName: profile.partnerName || '',
+            secretCode: profile.secretCode,
+            isSampleDemo: false,
+          };
+          localStorage.setItem(`${STORAGE_PREFIX}_session`, JSON.stringify(session));
 
           setSettings((prev) => ({
             ...prev,
@@ -240,11 +255,11 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     return () => unsubscribe();
-  }, [userRole, isSampleDemo]);
+  }, [isSampleDemo]);
 
   // Listen to Firestore real-time updates for Female Profile & Partner Connection
   useEffect(() => {
-    const targetUid = settings.femaleUid;
+    const targetUid = settings.femaleUid || firebaseUser?.uid || auth.currentUser?.uid;
     if (!targetUid || targetUid === 'sample-female-uid' || isSampleDemo) return;
 
     const userDocRef = doc(db, 'female_users', targetUid);
@@ -271,23 +286,6 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
 
     // Subcollection: Daily Logs
-    const sampleLogIds = new Set([
-      'log-2026-10-24',
-      'log-2026-10-23',
-      'log-2026-10-22',
-      'log-2026-10-21',
-      'log-2026-10-20',
-      'log-2026-10-19',
-      'log-2026-10-18',
-      'log-2026-10-17',
-      'log-2026-10-16',
-      'log-2026-10-15',
-      'log-2026-10-14',
-      'log-2026-10-13',
-      'log-2026-10-12',
-      'log-2026-10-11',
-    ]);
-
     const logsColRef = collection(db, 'female_users', targetUid, 'daily_logs');
     const unsubLogs = onSnapshot(
       logsColRef,
@@ -295,11 +293,11 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const loadedLogs: DailyLog[] = [];
         snap.forEach((d) => {
           const l = d.data() as DailyLog;
-          // Filter out accidental sample data from real user view
-          if (!isSampleDemo && sampleLogIds.has(l.id)) return;
+          // Filter out demo sample data from real user view
+          if (!isSampleDemo && (l.id?.startsWith('sample-') || l.isSampleDemo)) return;
           loadedLogs.push(l);
         });
-        setLogs(loadedLogs);
+        setLogs(loadedLogs.sort((a, b) => b.date.localeCompare(a.date)));
       },
       (err) => {
         console.warn('Real-time logs listener:', err);
@@ -307,15 +305,6 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
 
     // Subcollection: Cycles
-    const sampleCycleIds = new Set([
-      'cycle-2026-10',
-      'cycle-2026-09',
-      'cycle-2026-08',
-      'cycle-2026-07',
-      'cycle-2026-06',
-      'cycle-2026-05',
-    ]);
-
     const cyclesColRef = collection(db, 'female_users', targetUid, 'cycles');
     const unsubCycles = onSnapshot(
       cyclesColRef,
@@ -323,8 +312,8 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const loadedCycles: CycleRecord[] = [];
         snap.forEach((d) => {
           const c = d.data() as CycleRecord;
-          // Filter out accidental sample data from real user view
-          if (!isSampleDemo && sampleCycleIds.has(c.id)) return;
+          // Filter out demo sample data from real user view
+          if (!isSampleDemo && (c.id?.startsWith('sample-') || c.isSampleDemo)) return;
           loadedCycles.push(c);
         });
         setCycles(loadedCycles.sort((a, b) => b.startDate.localeCompare(a.startDate)));
@@ -339,7 +328,7 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       unsubLogs();
       unsubCycles();
     };
-  }, [settings.femaleUid, isSampleDemo]);
+  }, [settings.femaleUid, firebaseUser?.uid, isSampleDemo]);
 
   // Derived cycle status with statistical data analytics & on-device intelligence
   const cycleStatus = useMemo(() => {
@@ -628,8 +617,29 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return [log, ...prev];
     });
 
-    if (settings.femaleUid && !isSampleDemo) {
-      saveDailyLogToFirestore(settings.femaleUid, log).catch(console.error);
+    const activeUid = settings.femaleUid || firebaseUser?.uid || auth.currentUser?.uid;
+    if (activeUid && !isSampleDemo) {
+      saveDailyLogToFirestore(activeUid, log).catch(console.error);
+    }
+
+    // If bleeding flow is logged, ensure a cycle record exists for this date
+    if (log.flow && log.flow !== 'none') {
+      const hasCoveringCycle = cycles.some((c) => log.date >= c.startDate && log.date <= c.endDate);
+      if (!hasCoveringCycle) {
+        const autoCycle: CycleRecord = {
+          id: `user_cycle_${log.date}_${Date.now()}`,
+          startDate: log.date,
+          endDate: addDays(log.date, settings.averagePeriodLength - 1),
+          cycleLengthDays: settings.averageCycleLength,
+          periodDurationDays: settings.averagePeriodLength,
+          isConfirmed: true,
+          notes: `Logged flow: ${log.flow}`,
+        };
+        addOrUpdateCycle(autoCycle);
+      }
+      if (!settings.lastPeriodStartDate || log.date >= settings.lastPeriodStartDate) {
+        updateFemaleProfileInDb({ lastPeriodStartDate: log.date }).catch(console.error);
+      }
     }
   };
 
@@ -637,8 +647,9 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (userRole === 'male') return;
 
     setLogs((prev) => prev.filter((l) => l.date !== dateStr));
-    if (settings.femaleUid && !isSampleDemo) {
-      deleteDailyLogFromFirestore(settings.femaleUid, dateStr).catch(console.error);
+    const activeUid = settings.femaleUid || firebaseUser?.uid || auth.currentUser?.uid;
+    if (activeUid && !isSampleDemo) {
+      deleteDailyLogFromFirestore(activeUid, dateStr).catch(console.error);
     }
   };
 
@@ -657,8 +668,9 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return nextList.sort((a, b) => b.startDate.localeCompare(a.startDate));
     });
 
-    if (settings.femaleUid && !isSampleDemo) {
-      saveCycleToFirestore(settings.femaleUid, cycle).catch(console.error);
+    const activeUid = settings.femaleUid || firebaseUser?.uid || auth.currentUser?.uid;
+    if (activeUid && !isSampleDemo) {
+      saveCycleToFirestore(activeUid, cycle).catch(console.error);
     }
   };
 
@@ -666,8 +678,9 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (userRole === 'male') return;
 
     setCycles((prev) => prev.filter((c) => c.id !== id));
-    if (settings.femaleUid && !isSampleDemo) {
-      deleteCycleFromFirestore(settings.femaleUid, id).catch(console.error);
+    const activeUid = settings.femaleUid || firebaseUser?.uid || auth.currentUser?.uid;
+    if (activeUid && !isSampleDemo) {
+      deleteCycleFromFirestore(activeUid, id).catch(console.error);
     }
   };
 
@@ -699,7 +712,7 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     } else {
       const newCycle: CycleRecord = {
-        id: `cycle-${dateStr}-${Date.now()}`,
+        id: `user_cycle_${dateStr}_${Date.now()}`,
         startDate: dateStr,
         endDate: addDays(dateStr, settings.averagePeriodLength - 1),
         cycleLengthDays: settings.averageCycleLength,
@@ -707,6 +720,9 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         isConfirmed: true,
       };
       addOrUpdateCycle(newCycle);
+      if (!settings.lastPeriodStartDate || dateStr >= settings.lastPeriodStartDate) {
+        updateFemaleProfileInDb({ lastPeriodStartDate: dateStr }).catch(console.error);
+      }
     }
   };
 
