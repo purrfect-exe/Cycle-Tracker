@@ -34,7 +34,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
   const handleMaleCodeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const clean = partnerCode.trim().toUpperCase();
+    const clean = partnerCode.trim();
     if (!clean) {
       setErrorMsg('Please enter a 4-character pairing code.');
       return;
@@ -175,7 +175,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   type="text"
                   maxLength={6}
                   value={partnerCode}
-                  onChange={(e) => setPartnerCode(e.target.value.toUpperCase())}
+                  onChange={(e) => setPartnerCode(e.target.value)}
                   placeholder="e.g. 7#KQ"
                   className="w-full text-center text-lg font-mono font-black p-3 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 placeholder-slate-400 tracking-widest focus:outline-none focus:ring-2 focus:ring-sky-500"
                   required
