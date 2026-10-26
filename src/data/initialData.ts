@@ -14,6 +14,20 @@ export const INITIAL_USER_SETTINGS: UserSettings = {
   calibrationMode: 'analytics',
 };
 
+export const EMPTY_USER_SETTINGS: UserSettings = {
+  trackerName: '',
+  partnerName: '',
+  averageCycleLength: 28,
+  averagePeriodLength: 5,
+  lutealPhaseLength: 14,
+  lastPeriodStartDate: '',
+  secretCode: '',
+  partnerConnected: false,
+  activeRole: 'female',
+  femaleUid: '',
+  calibrationMode: 'analytics',
+};
+
 // Highly varied sample data across 6 months so graph differences are immediately noticeable
 export const INITIAL_CYCLES: CycleRecord[] = [
   {

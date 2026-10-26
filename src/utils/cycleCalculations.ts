@@ -703,6 +703,7 @@ export function calculateCycleStatus(
     averageCycleLength: number;
     averagePeriodLength: number;
     lutealPhaseLength: number;
+    lastPeriodStartDate?: string;
     calibrationMode?: 'analytics' | 'custom';
     customCycleLengthOverride?: number;
     customPeriodDurationOverride?: number;
@@ -729,14 +730,17 @@ export function calculateCycleStatus(
   const sortedCycles = [...cycles].sort((a, b) => b.startDate.localeCompare(a.startDate));
   const latestCycle = sortedCycles[0];
 
-  const lastStart = latestCycle ? latestCycle.startDate : addDays(todayStr, -14);
+  const hasAnchor = Boolean(latestCycle || settings.lastPeriodStartDate);
+  const lastStart = latestCycle
+    ? latestCycle.startDate
+    : settings.lastPeriodStartDate || todayStr;
   const daysSinceLast = daysBetween(lastStart, todayStr);
 
   const cycleCount = Math.floor(Math.max(0, daysSinceLast) / avgCycle);
   const currentCycleStart = cycleCount > 0 ? addDays(lastStart, cycleCount * avgCycle) : lastStart;
 
-  const currentCycleDay = Math.max(1, daysBetween(currentCycleStart, todayStr) + 1);
-  const nextPeriodStartDate = addDays(currentCycleStart, avgCycle);
+  const currentCycleDay = hasAnchor ? Math.max(1, daysBetween(currentCycleStart, todayStr) + 1) : 1;
+  const nextPeriodStartDate = hasAnchor ? addDays(currentCycleStart, avgCycle) : addDays(todayStr, avgCycle);
   const nextPeriodEndDate = addDays(nextPeriodStartDate, avgPeriod - 1);
   const daysUntilNextPeriod = Math.max(0, daysBetween(todayStr, nextPeriodStartDate));
 
@@ -751,8 +755,11 @@ export function calculateCycleStatus(
   let isPeriodActiveToday = false;
   if (latestCycle && todayStr >= latestCycle.startDate && todayStr <= latestCycle.endDate) {
     isPeriodActiveToday = true;
-  } else if (currentCycleDay <= avgPeriod) {
-    isPeriodActiveToday = true;
+  } else if (!latestCycle && settings.lastPeriodStartDate) {
+    const periodEnd = addDays(settings.lastPeriodStartDate, avgPeriod - 1);
+    if (todayStr >= settings.lastPeriodStartDate && todayStr <= periodEnd) {
+      isPeriodActiveToday = true;
+    }
   }
 
   let phase: CyclePhase = 'menstrual';
@@ -809,7 +816,13 @@ export function getDayStatus(
   todayStr: string,
   cycles: CycleRecord[],
   logs: DailyLog[],
-  settings: { averageCycleLength: number; averagePeriodLength: number; lutealPhaseLength: number; confidenceMarginDays?: number }
+  settings: {
+    averageCycleLength: number;
+    averagePeriodLength: number;
+    lutealPhaseLength: number;
+    confidenceMarginDays?: number;
+    lastPeriodStartDate?: string;
+  }
 ): DayForecast {
   const d = parseDateString(dateStr);
   const isToday = dateStr === todayStr;
@@ -824,7 +837,9 @@ export function getDayStatus(
   );
 
   const sortedCycles = [...cycles].sort((a, b) => b.startDate.localeCompare(a.startDate));
-  const latestStart = sortedCycles[0]?.startDate || todayStr;
+  const hasCycleAnchor = sortedCycles.length > 0 || Boolean(settings.lastPeriodStartDate);
+  const anchorDate = sortedCycles[0]?.startDate || settings.lastPeriodStartDate;
+
   const avgCycle = settings.averageCycleLength || 28;
   const avgPeriod = settings.averagePeriodLength || 5;
   const luteal = settings.lutealPhaseLength || 14;
@@ -835,42 +850,48 @@ export function getDayStatus(
   let isOvulationDay = false;
   let isFertileWindow = false;
 
-  for (let i = 1; i <= 6; i++) {
-    const predStart = addDays(latestStart, i * avgCycle);
-    const predEnd = addDays(predStart, avgPeriod - 1);
-    const windowStart = addDays(predStart, -marginDays);
-    const windowEnd = addDays(predStart, marginDays);
+  // Only calculate future predictions if the user has an anchor cycle or last period date
+  if (hasCycleAnchor && anchorDate) {
+    for (let i = 1; i <= 6; i++) {
+      const predStart = addDays(anchorDate, i * avgCycle);
+      const predEnd = addDays(predStart, avgPeriod - 1);
+      const windowStart = addDays(predStart, -marginDays);
+      const windowEnd = addDays(predStart, marginDays);
 
-    const predOvulation = addDays(predStart, -luteal);
-    const predFertileStart = addDays(predOvulation, -5);
-    const predFertileEnd = addDays(predOvulation, 1);
+      const predOvulation = addDays(predStart, -luteal);
+      const predFertileStart = addDays(predOvulation, -5);
+      const predFertileEnd = addDays(predOvulation, 1);
 
-    if (dateStr >= predStart && dateStr <= predEnd) {
-      isPredictedPeriod = true;
-    }
-    if (dateStr >= windowStart && dateStr <= windowEnd) {
-      isEstimatedWindow = true;
-    }
-    if (dateStr === predOvulation) {
-      isOvulationDay = true;
-    }
-    if (dateStr >= predFertileStart && dateStr <= predFertileEnd) {
-      isFertileWindow = true;
+      if (dateStr >= predStart && dateStr <= predEnd) {
+        isPredictedPeriod = true;
+      }
+      if (dateStr >= windowStart && dateStr <= windowEnd) {
+        isEstimatedWindow = true;
+      }
+      if (dateStr === predOvulation) {
+        isOvulationDay = true;
+      }
+      if (dateStr >= predFertileStart && dateStr <= predFertileEnd) {
+        isFertileWindow = true;
+      }
     }
   }
 
-  const daysDiff = daysBetween(latestStart, dateStr);
-  const modDay = (((daysDiff % avgCycle) + avgCycle) % avgCycle) + 1;
-
   let phase: CyclePhase = 'follicular';
-  if (isRecordedPeriod || isPredictedPeriod || modDay <= avgPeriod) {
+  if (isRecordedPeriod || isPredictedPeriod) {
     phase = 'menstrual';
-  } else if (modDay < avgCycle - luteal - 1) {
-    phase = 'follicular';
-  } else if (modDay <= avgCycle - luteal + 2) {
-    phase = 'ovulatory';
-  } else {
-    phase = 'luteal';
+  } else if (hasCycleAnchor && anchorDate) {
+    const daysDiff = daysBetween(anchorDate, dateStr);
+    const modDay = (((daysDiff % avgCycle) + avgCycle) % avgCycle) + 1;
+    if (modDay <= avgPeriod) {
+      phase = 'menstrual';
+    } else if (modDay < avgCycle - luteal - 1) {
+      phase = 'follicular';
+    } else if (modDay <= avgCycle - luteal + 2) {
+      phase = 'ovulatory';
+    } else {
+      phase = 'luteal';
+    }
   }
 
   return {

@@ -103,10 +103,10 @@ export const HomeDashboard: React.FC = () => {
                   Cycle Day
                 </span>
                 <span className="text-4xl font-extrabold text-[#261C19] tabular-nums my-0.5">
-                  {cycleStatus.currentCycleDay}
+                  {cycles.length === 0 && !settings.lastPeriodStartDate ? '—' : cycleStatus.currentCycleDay}
                 </span>
                 <span className="text-xs text-[#7A5B4F] font-medium">
-                  of {cycleStatus.totalCycleLength} days
+                  {cycles.length === 0 && !settings.lastPeriodStartDate ? 'Awaiting Log' : `of ${cycleStatus.totalCycleLength} days`}
                 </span>
               </div>
             </div>
@@ -131,22 +131,32 @@ export const HomeDashboard: React.FC = () => {
               </div>
 
               <div className="text-2xl font-bold text-[#261C19] mt-1">
-                {cycleStatus.daysUntilNextPeriod === 0
+                {cycles.length === 0 && !settings.lastPeriodStartDate
+                  ? 'No period logged yet'
+                  : cycleStatus.daysUntilNextPeriod === 0
                   ? 'Expected Today'
                   : `${formatDisplayDate(cycleStatus.nextPeriodStartDate)} (${cycleStatus.daysUntilNextPeriod} days away)`}
               </div>
 
               {/* Estimated Variability Date Range Window */}
               <div className="text-xs text-[#7A5B4F] mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="font-medium text-[#261C19]">
-                  Estimated Start Window:
-                </span>
-                <span className="font-semibold text-[#BC4F4F] bg-[#FCECEC] px-2 py-0.5 rounded-md border border-[#BC4F4F]/30">
-                  {formatDisplayDate(analytics.estimatedWindowStart, { short: true })} – {formatDisplayDate(analytics.estimatedWindowEnd, { short: true })})
-                </span>
-                <span className="text-[11px] text-[#7A5B4F]">
-                  (Based on {analytics.sampleSize} tracked cycles)
-                </span>
+                {analytics.sampleSize === 0 && !settings.lastPeriodStartDate ? (
+                  <span className="text-[11px] text-[#7A5B4F]">
+                    Predictions will calibrate automatically once you log your period dates.
+                  </span>
+                ) : (
+                  <>
+                    <span className="font-medium text-[#261C19]">
+                      Estimated Start Window:
+                    </span>
+                    <span className="font-semibold text-[#BC4F4F] bg-[#FCECEC] px-2 py-0.5 rounded-md border border-[#BC4F4F]/30">
+                      {formatDisplayDate(analytics.estimatedWindowStart, { short: true })} – {formatDisplayDate(analytics.estimatedWindowEnd, { short: true })}
+                    </span>
+                    <span className="text-[11px] text-[#7A5B4F]">
+                      (Based on {analytics.sampleSize} tracked cycles)
+                    </span>
+                  </>
+                )}
               </div>
             </div>
 
@@ -251,6 +261,8 @@ export const HomeDashboard: React.FC = () => {
             } else if (fDay.isFertileWindow) {
               bgClass = 'bg-[#FEF4EC] border-[#F3CD97] text-[#C25B23] font-medium';
               label = 'Peak';
+            } else if (cycles.length === 0 && !settings.lastPeriodStartDate) {
+              label = fDay.isToday ? 'Today' : '—';
             }
 
             return (

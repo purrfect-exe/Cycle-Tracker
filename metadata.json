@@ -1,0 +1,6 @@
+{
+  "name": "Aura & Bloom - Couple's Cycle Companion",
+  "description": "An intimate, shared menstrual cycle tracker and partner care companion with cycle forecasting, daily symptom tracking, comfort planning, and supportive partner insights.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

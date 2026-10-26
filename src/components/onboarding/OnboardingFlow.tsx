@@ -23,12 +23,12 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
   const { settings, updateFemaleProfileInDb } = useCycle();
 
   const [step, setStep] = useState<number>(1);
-  const [name] = useState<string>(settings.trackerName || 'Emma');
-  const [partnerName, setPartnerName] = useState<string>(settings.partnerName || 'Alex');
-  const [lastPeriodDate, setLastPeriodDate] = useState<string>(settings.lastPeriodStartDate || '2026-10-11');
-  const [cycleLength, setCycleLength] = useState<number>(settings.averageCycleLength || 29);
+  const [name] = useState<string>(settings.trackerName && settings.trackerName !== 'Emma' ? settings.trackerName : 'You');
+  const [partnerName, setPartnerName] = useState<string>(settings.partnerName && settings.partnerName !== 'Alex' ? settings.partnerName : '');
+  const [lastPeriodDate, setLastPeriodDate] = useState<string>(settings.lastPeriodStartDate && settings.lastPeriodStartDate !== '2026-10-11' ? settings.lastPeriodStartDate : '');
+  const [cycleLength, setCycleLength] = useState<number>(settings.averageCycleLength || 28);
   const [periodDuration, setPeriodDuration] = useState<number>(settings.averagePeriodLength || 5);
-  const [secretCode, setSecretCode] = useState<string>(settings.secretCode || '7#Kq');
+  const [secretCode, setSecretCode] = useState<string>(settings.secretCode || '');
   const [isRegeneratingCode, setIsRegeneratingCode] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -56,10 +56,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
 
   const handleFinishOnboarding = async () => {
     await updateFemaleProfileInDb({
-      displayName: name.trim() || 'Emma',
-      partnerName: partnerName.trim() || 'Alex',
-      averageCycleLength: Number(cycleLength),
-      averagePeriodLength: Number(periodDuration),
+      displayName: name.trim() || 'You',
+      partnerName: partnerName.trim() || '',
+      averageCycleLength: Number(cycleLength) || 28,
+      averagePeriodLength: Number(periodDuration) || 5,
       lastPeriodStartDate: lastPeriodDate,
       secretCode,
       onboardingCompleted: true,
@@ -170,7 +170,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
 
               <div>
                 <label className="block text-xs font-semibold text-[#526A5E] mb-1">
-                  Partner's Display Name
+                  Partner's Display Name <span className="font-normal text-[#6D887C]">(Optional)</span>
                 </label>
                 <input
                   type="text"
@@ -178,7 +178,6 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ onComplete }) =>
                   onChange={(e) => setPartnerName(e.target.value)}
                   placeholder="e.g. Alex"
                   className="w-full text-xs p-2.5 bg-[#F8FAF9] border border-[#DFECE5] rounded-xl text-[#1B3B2B] focus:outline-none focus:ring-2 focus:ring-[#2D6A4F]"
-                  required
                 />
                 <span className="text-[10px] text-[#6D887C] mt-1 block">
                   Your male partner can edit his name anytime after connecting.

@@ -7,6 +7,7 @@ import {
 } from '../types/cycle';
 import {
   INITIAL_USER_SETTINGS,
+  EMPTY_USER_SETTINGS,
   INITIAL_CYCLES,
   INITIAL_LOGS,
 } from '../data/initialData';
@@ -45,6 +46,7 @@ import {
   saveCycleToFirestore,
   deleteCycleFromFirestore,
   deleteDailyLogFromFirestore,
+  purgeSampleDataFromRealUser,
   seedInitialUserDataIfEmpty,
   unlinkPartner,
   FemaleUserProfile,
@@ -135,7 +137,8 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [settings, setSettings] = useState<UserSettings>(() => {
     try {
       const saved = localStorage.getItem(`${STORAGE_PREFIX}_settings`);
-      const baseSettings = saved ? JSON.parse(saved) : INITIAL_USER_SETTINGS;
+      const fallbackSettings = savedSession?.isSampleDemo ? INITIAL_USER_SETTINGS : EMPTY_USER_SETTINGS;
+      const baseSettings = saved ? JSON.parse(saved) : fallbackSettings;
       if (savedSession) {
         return {
           ...baseSettings,
@@ -144,31 +147,39 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           trackerName: savedSession.trackerName || baseSettings.trackerName,
           partnerName: savedSession.partnerName || baseSettings.partnerName,
           secretCode: savedSession.secretCode || baseSettings.secretCode,
-          partnerConnected: Boolean(savedSession.femaleUid),
+          partnerConnected: Boolean(savedSession.femaleUid && savedSession.partnerName),
         };
       }
       return baseSettings;
     } catch {
-      return INITIAL_USER_SETTINGS;
+      return savedSession?.isSampleDemo ? INITIAL_USER_SETTINGS : EMPTY_USER_SETTINGS;
     }
   });
 
-  // Cycles & Logs State
+  // Cycles & Logs State: ONLY load sample data for demo preview mode (XXXX or XYXY)
   const [cycles, setCycles] = useState<CycleRecord[]>(() => {
     try {
+      if (savedSession?.isSampleDemo) {
+        const saved = localStorage.getItem(`${STORAGE_PREFIX}_cycles`);
+        return saved ? JSON.parse(saved) : INITIAL_CYCLES;
+      }
       const saved = localStorage.getItem(`${STORAGE_PREFIX}_cycles`);
-      return saved ? JSON.parse(saved) : INITIAL_CYCLES;
+      return saved ? JSON.parse(saved) : [];
     } catch {
-      return INITIAL_CYCLES;
+      return [];
     }
   });
 
   const [logs, setLogs] = useState<DailyLog[]>(() => {
     try {
+      if (savedSession?.isSampleDemo) {
+        const saved = localStorage.getItem(`${STORAGE_PREFIX}_logs`);
+        return saved ? JSON.parse(saved) : INITIAL_LOGS;
+      }
       const saved = localStorage.getItem(`${STORAGE_PREFIX}_logs`);
-      return saved ? JSON.parse(saved) : INITIAL_LOGS;
+      return saved ? JSON.parse(saved) : [];
     } catch {
-      return INITIAL_LOGS;
+      return [];
     }
   });
 
@@ -195,24 +206,28 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setFirebaseUser(user);
-      if (user && userRole === 'female') {
+      if (user && userRole === 'female' && !isSampleDemo) {
         try {
+          // Remove any accidental sample data from real user's database
+          await purgeSampleDataFromRealUser(user.uid);
+
           const { profile, isNew } = await getOrCreateFemaleProfile(
             user.uid,
             user.email || '',
-            user.displayName || 'Emma'
+            user.displayName || 'You'
           );
 
           setSettings((prev) => ({
             ...prev,
             trackerName: profile.displayName,
             partnerName: profile.partnerName || prev.partnerName,
-            averageCycleLength: profile.averageCycleLength,
-            averagePeriodLength: profile.averagePeriodLength,
+            averageCycleLength: profile.averageCycleLength || 28,
+            averagePeriodLength: profile.averagePeriodLength || 5,
             secretCode: profile.secretCode,
-            partnerConnected: profile.partnerConnected,
+            partnerConnected: profile.partnerConnected || false,
             femaleUid: profile.uid,
             activeRole: 'female',
+            lastPeriodStartDate: profile.lastPeriodStartDate || '',
           }));
 
           if (isNew || !profile.onboardingCompleted) {
@@ -225,7 +240,7 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     return () => unsubscribe();
-  }, [userRole]);
+  }, [userRole, isSampleDemo]);
 
   // Listen to Firestore real-time updates for Female Profile & Partner Connection
   useEffect(() => {
@@ -246,6 +261,7 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             secretCode: data.secretCode,
             averageCycleLength: data.averageCycleLength,
             averagePeriodLength: data.averagePeriodLength,
+            lastPeriodStartDate: data.lastPeriodStartDate || prev.lastPeriodStartDate,
           }));
         }
       },
@@ -255,15 +271,35 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
 
     // Subcollection: Daily Logs
+    const sampleLogIds = new Set([
+      'log-2026-10-24',
+      'log-2026-10-23',
+      'log-2026-10-22',
+      'log-2026-10-21',
+      'log-2026-10-20',
+      'log-2026-10-19',
+      'log-2026-10-18',
+      'log-2026-10-17',
+      'log-2026-10-16',
+      'log-2026-10-15',
+      'log-2026-10-14',
+      'log-2026-10-13',
+      'log-2026-10-12',
+      'log-2026-10-11',
+    ]);
+
     const logsColRef = collection(db, 'female_users', targetUid, 'daily_logs');
     const unsubLogs = onSnapshot(
       logsColRef,
       (snap) => {
         const loadedLogs: DailyLog[] = [];
-        snap.forEach((d) => loadedLogs.push(d.data() as DailyLog));
-        if (loadedLogs.length > 0) {
-          setLogs(loadedLogs);
-        }
+        snap.forEach((d) => {
+          const l = d.data() as DailyLog;
+          // Filter out accidental sample data from real user view
+          if (!isSampleDemo && sampleLogIds.has(l.id)) return;
+          loadedLogs.push(l);
+        });
+        setLogs(loadedLogs);
       },
       (err) => {
         console.warn('Real-time logs listener:', err);
@@ -271,15 +307,27 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
 
     // Subcollection: Cycles
+    const sampleCycleIds = new Set([
+      'cycle-2026-10',
+      'cycle-2026-09',
+      'cycle-2026-08',
+      'cycle-2026-07',
+      'cycle-2026-06',
+      'cycle-2026-05',
+    ]);
+
     const cyclesColRef = collection(db, 'female_users', targetUid, 'cycles');
     const unsubCycles = onSnapshot(
       cyclesColRef,
       (snap) => {
         const loadedCycles: CycleRecord[] = [];
-        snap.forEach((d) => loadedCycles.push(d.data() as CycleRecord));
-        if (loadedCycles.length > 0) {
-          setCycles(loadedCycles.sort((a, b) => b.startDate.localeCompare(a.startDate)));
-        }
+        snap.forEach((d) => {
+          const c = d.data() as CycleRecord;
+          // Filter out accidental sample data from real user view
+          if (!isSampleDemo && sampleCycleIds.has(c.id)) return;
+          loadedCycles.push(c);
+        });
+        setCycles(loadedCycles.sort((a, b) => b.startDate.localeCompare(a.startDate)));
       },
       (err) => {
         console.warn('Real-time cycles listener:', err);
@@ -302,6 +350,7 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         averageCycleLength: settings.averageCycleLength,
         averagePeriodLength: settings.averagePeriodLength,
         lutealPhaseLength: settings.lutealPhaseLength,
+        lastPeriodStartDate: settings.lastPeriodStartDate,
         calibrationMode: settings.calibrationMode,
         customCycleLengthOverride: settings.customCycleLengthOverride,
         customPeriodDurationOverride: settings.customPeriodDurationOverride,
@@ -320,10 +369,13 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       localStorage.removeItem(`${STORAGE_PREFIX}_demo`);
       setIsSampleDemo(false);
 
+      // Clean out any accidental sample data if it was previously saved to this UID
+      await purgeSampleDataFromRealUser(res.user.uid);
+
       const { profile, isNew } = await getOrCreateFemaleProfile(
         res.user.uid,
         res.user.email || '',
-        res.user.displayName || 'Emma'
+        res.user.displayName || 'You'
       );
 
       // Save persistent session
@@ -337,21 +389,28 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
       localStorage.setItem(`${STORAGE_PREFIX}_session`, JSON.stringify(session));
 
-      setSettings((prev) => ({
-        ...prev,
+      // Real users start with empty cycles and logs until they log them
+      setCycles([]);
+      setLogs([]);
+      localStorage.setItem(`${STORAGE_PREFIX}_cycles`, JSON.stringify([]));
+      localStorage.setItem(`${STORAGE_PREFIX}_logs`, JSON.stringify([]));
+
+      setSettings({
         trackerName: profile.displayName,
-        partnerName: profile.partnerName || prev.partnerName,
-        averageCycleLength: profile.averageCycleLength,
-        averagePeriodLength: profile.averagePeriodLength,
+        partnerName: profile.partnerName || '',
+        averageCycleLength: profile.averageCycleLength || 28,
+        averagePeriodLength: profile.averagePeriodLength || 5,
+        lutealPhaseLength: profile.lutealPhaseLength || 14,
+        lastPeriodStartDate: profile.lastPeriodStartDate || '',
         secretCode: profile.secretCode,
-        partnerConnected: profile.partnerConnected,
+        partnerConnected: profile.partnerConnected || false,
         femaleUid: profile.uid,
         activeRole: 'female',
-      }));
+        calibrationMode: 'analytics',
+      });
 
       if (isNew || !profile.onboardingCompleted) {
         setIsOnboarding(true);
-        await seedInitialUserDataIfEmpty(res.user.uid, INITIAL_CYCLES, INITIAL_LOGS);
       }
     } catch (error) {
       console.error('Google Sign-In failed:', error);
@@ -379,7 +438,7 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const result = await connectMaleWithCode(code, maleName);
       if (result.success && result.femaleProfile) {
         const profile = result.femaleProfile;
-        const resolvedMaleName = maleName.trim() || profile.partnerName || 'Alex';
+        const resolvedMaleName = maleName.trim() || profile.partnerName || 'Partner';
         setUserRole('male');
         localStorage.setItem(`${STORAGE_PREFIX}_role`, 'male');
         localStorage.removeItem(`${STORAGE_PREFIX}_demo`);
@@ -396,17 +455,25 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         };
         localStorage.setItem(`${STORAGE_PREFIX}_session`, JSON.stringify(session));
 
-        setSettings((prev) => ({
-          ...prev,
+        // Start fresh; will be populated from female partner's real Firestore subcollections
+        setCycles([]);
+        setLogs([]);
+        localStorage.setItem(`${STORAGE_PREFIX}_cycles`, JSON.stringify([]));
+        localStorage.setItem(`${STORAGE_PREFIX}_logs`, JSON.stringify([]));
+
+        setSettings({
           trackerName: profile.displayName,
           partnerName: resolvedMaleName,
-          averageCycleLength: profile.averageCycleLength,
-          averagePeriodLength: profile.averagePeriodLength,
+          averageCycleLength: profile.averageCycleLength || 28,
+          averagePeriodLength: profile.averagePeriodLength || 5,
+          lutealPhaseLength: profile.lutealPhaseLength || 14,
+          lastPeriodStartDate: profile.lastPeriodStartDate || '',
           secretCode: profile.secretCode,
           partnerConnected: true,
           femaleUid: profile.uid,
           activeRole: 'male',
-        }));
+          calibrationMode: 'analytics',
+        });
 
         return { success: true };
       }
@@ -438,6 +505,9 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
     setCycles(INITIAL_CYCLES);
     setLogs(INITIAL_LOGS);
+    localStorage.setItem(`${STORAGE_PREFIX}_settings`, JSON.stringify(INITIAL_USER_SETTINGS));
+    localStorage.setItem(`${STORAGE_PREFIX}_cycles`, JSON.stringify(INITIAL_CYCLES));
+    localStorage.setItem(`${STORAGE_PREFIX}_logs`, JSON.stringify(INITIAL_LOGS));
     setIsOnboarding(false);
   };
 
@@ -452,9 +522,15 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setUserRole(null);
     setIsSampleDemo(false);
     setIsOnboarding(false);
+    setCycles([]);
+    setLogs([]);
+    setSettings(EMPTY_USER_SETTINGS);
     localStorage.removeItem(`${STORAGE_PREFIX}_session`);
     localStorage.removeItem(`${STORAGE_PREFIX}_role`);
     localStorage.removeItem(`${STORAGE_PREFIX}_demo`);
+    localStorage.removeItem(`${STORAGE_PREFIX}_settings`);
+    localStorage.removeItem(`${STORAGE_PREFIX}_cycles`);
+    localStorage.removeItem(`${STORAGE_PREFIX}_logs`);
     setActiveTab('home');
   };
 

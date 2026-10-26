@@ -199,16 +199,16 @@ export const MaleDashboard: React.FC = () => {
                   CYCLE DAY
                 </span>
                 <span className="text-4xl sm:text-5xl font-black text-white tabular-nums tracking-tight my-0.5">
-                  {cycleStatus.currentCycleDay}
+                  {cycles.length === 0 && !settings.lastPeriodStartDate ? '—' : cycleStatus.currentCycleDay}
                 </span>
                 <span className="text-xs text-slate-400 font-medium">
-                  of {cycleStatus.totalCycleLength} days
+                  {cycles.length === 0 && !settings.lastPeriodStartDate ? 'Awaiting Log' : `of ${cycleStatus.totalCycleLength} days`}
                 </span>
                 <div className="w-12 h-1 bg-slate-800 rounded-full mt-1.5 overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500"
                     style={{
-                      width: `${cycleStatus.cycleProgressPercent}%`,
+                      width: `${cycles.length === 0 && !settings.lastPeriodStartDate ? 0 : cycleStatus.cycleProgressPercent}%`,
                       backgroundColor: phaseInfo.ringColor,
                     }}
                   />
@@ -250,18 +250,28 @@ export const MaleDashboard: React.FC = () => {
 
                 <div className="mt-2 flex items-baseline gap-2">
                   <span className="text-3xl font-black text-white tabular-nums tracking-tight">
-                    {cycleStatus.daysUntilNextPeriod}
+                    {cycles.length === 0 && !settings.lastPeriodStartDate ? '—' : cycleStatus.daysUntilNextPeriod}
                   </span>
                   <span className="text-sm font-semibold text-slate-300">
-                    {cycleStatus.daysUntilNextPeriod === 1 ? 'day left' : 'days left'}
+                    {cycles.length === 0 && !settings.lastPeriodStartDate
+                      ? 'No period recorded yet'
+                      : cycleStatus.daysUntilNextPeriod === 1
+                      ? 'day left'
+                      : 'days left'}
                   </span>
                 </div>
 
                 <div className="text-xs text-slate-300 mt-1">
-                  Starts around{' '}
-                  <span className="font-bold text-white">
-                    {formatDisplayDate(cycleStatus.nextPeriodStartDate, { short: true })}
-                  </span>
+                  {cycles.length === 0 && !settings.lastPeriodStartDate ? (
+                    <span>Waiting for {settings.trackerName || 'partner'} to record first period</span>
+                  ) : (
+                    <>
+                      Starts around{' '}
+                      <span className="font-bold text-white">
+                        {formatDisplayDate(cycleStatus.nextPeriodStartDate, { short: true })}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -696,6 +706,9 @@ export const MaleDashboard: React.FC = () => {
               bgClass = 'bg-amber-50/50 border-amber-200 text-amber-900';
               label = 'Vibrant';
               pillColor = 'bg-amber-200 text-amber-800';
+            } else if (cycles.length === 0 && !settings.lastPeriodStartDate) {
+              label = fDay.isToday ? 'Today' : '—';
+              pillColor = 'bg-slate-200 text-slate-600';
             }
 
             const isInspected = fDay.date === inspectedDate;

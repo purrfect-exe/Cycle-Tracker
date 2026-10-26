@@ -80,17 +80,23 @@ export async function getOrCreateFemaleProfile(
     }
 
     const secretCode = await generateUniqueSecretCode();
+    const resolvedName = displayName && displayName.trim() && displayName !== 'Emma'
+      ? displayName.trim()
+      : email
+      ? email.split('@')[0]
+      : 'You';
+
     const newProfile: FemaleUserProfile = {
       uid,
       email: email || '',
-      displayName: displayName || 'Emma',
+      displayName: resolvedName,
       secretCode,
       partnerConnected: false,
       partnerName: '',
       averageCycleLength: 28,
       averagePeriodLength: 5,
       lutealPhaseLength: 14,
-      lastPeriodStartDate: '2026-10-11',
+      lastPeriodStartDate: '',
       onboardingCompleted: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -287,27 +293,66 @@ export async function unlinkPartner(femaleUid: string, secretCode: string): Prom
   }
 }
 
-export async function seedInitialUserDataIfEmpty(
-  femaleUid: string,
-  initialCycles: CycleRecord[],
-  initialLogs: DailyLog[]
-): Promise<void> {
+const SAMPLE_CYCLE_IDS = new Set([
+  'cycle-2026-10',
+  'cycle-2026-09',
+  'cycle-2026-08',
+  'cycle-2026-07',
+  'cycle-2026-06',
+  'cycle-2026-05',
+]);
+
+const SAMPLE_LOG_IDS = new Set([
+  'log-2026-10-24',
+  'log-2026-10-23',
+  'log-2026-10-22',
+  'log-2026-10-21',
+  'log-2026-10-20',
+  'log-2026-10-19',
+  'log-2026-10-18',
+  'log-2026-10-17',
+  'log-2026-10-16',
+  'log-2026-10-15',
+  'log-2026-10-14',
+  'log-2026-10-13',
+  'log-2026-10-12',
+  'log-2026-10-11',
+]);
+
+/**
+ * Remove any demo/sample data that may have been saved to a real user's database.
+ */
+export async function purgeSampleDataFromRealUser(femaleUid: string): Promise<void> {
+  if (!femaleUid || femaleUid === 'sample-female-uid') return;
+
   try {
     const cyclesSnap = await getDocs(collection(db, 'female_users', femaleUid, 'cycles'));
-    if (cyclesSnap.empty) {
-      for (const c of initialCycles) {
-        await setDoc(doc(db, 'female_users', femaleUid, 'cycles', c.id), c);
+    for (const docSnap of cyclesSnap.docs) {
+      if (SAMPLE_CYCLE_IDS.has(docSnap.id) || docSnap.id.startsWith('cycle-2026-')) {
+        await deleteDoc(docSnap.ref);
       }
     }
 
     const logsSnap = await getDocs(collection(db, 'female_users', femaleUid, 'daily_logs'));
-    if (logsSnap.empty) {
-      for (const l of initialLogs) {
-        await setDoc(doc(db, 'female_users', femaleUid, 'daily_logs', l.date), l);
+    for (const docSnap of logsSnap.docs) {
+      const data = docSnap.data();
+      if (SAMPLE_LOG_IDS.has(data.id) || (data.customNote && data.customNote.includes('quiet dinner tonight'))) {
+        await deleteDoc(docSnap.ref);
       }
     }
-  } catch (error) {
-    console.warn('Initial seeding fallback:', error);
+  } catch (err) {
+    console.warn('Purge sample data:', err);
   }
+}
+
+/**
+ * Real users never have sample data seeded. Function maintained as a no-op for backward compatibility.
+ */
+export async function seedInitialUserDataIfEmpty(
+  _femaleUid: string,
+  _initialCycles: CycleRecord[],
+  _initialLogs: DailyLog[]
+): Promise<void> {
+  // Deliberately no-op. Real users must start with 0 previous cycles and 0 logs.
 }
 
