@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    /* User Requested Vibrant Palette */
+    --color-sunbeam: #FEF2A0;       /* Sunbeam Buttercup */
+    --color-honey: #F3CD97;         /* Warm Honey Peach */
+    --color-terracotta: #E98B50;    /* Tangerine Terracotta */
+    --color-crimson: #BC4F4F;       /* Velvet Crimson / Rust Rose */
+
+    /* Harmonious Accents */
+    --color-crimson-dark: #8E2B2B;  /* Deep Garnet */
+    --color-terracotta-dark: #C25B23;
+    --color-warm-bg: #FDFBF7;       /* Soft glowing alabaster */
+    --color-slate-companion: #1E293B; /* Male companion slate */
+  }
+  
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    color: #261C19;
+    background-color: #FDFBF7;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Soothing Low-End Friendly Animations (GPU transform/opacity only) */
+@keyframes gentle-breathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.95;
+  }
+  50% {
+    transform: scale(1.028);
+    opacity: 1;
+  }
+}
+
+@keyframes soft-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes smooth-appear {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-breathe {
+  animation: gentle-breathe .5s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.animate-soft-pulse {
+  animation: soft-pulse 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-smooth-appear {
+  animation: smooth-appear 0.25s ease-out forwards;
+}
+
+/* Custom scrollbar matching warm terracotta/honey tones */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #F3CD97;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #E98B50;
+}

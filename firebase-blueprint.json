@@ -1,0 +1,94 @@
+{
+  "entities": {
+    "FemaleUser": {
+      "title": "FemaleUser",
+      "description": "Female account owner profile, cycle preferences, and partner connection status",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID of the female user" },
+        "email": { "type": "string", "description": "Google email of the female user" },
+        "displayName": { "type": "string", "description": "Display name of the female user" },
+        "secretCode": { "type": "string", "description": "Unique secret invite code generated for her male partner" },
+        "partnerConnected": { "type": "boolean", "description": "Whether a male partner is connected using her code" },
+        "partnerName": { "type": "string", "description": "Name of the male partner (editable by male partner)" },
+        "partnerConnectedAt": { "type": "string", "description": "ISO timestamp when male partner connected" },
+        "averageCycleLength": { "type": "number", "description": "Average menstrual cycle length in days" },
+        "averagePeriodLength": { "type": "number", "description": "Average period duration in days" },
+        "lutealPhaseLength": { "type": "number", "description": "Luteal phase duration in days" },
+        "lastPeriodStartDate": { "type": "string", "description": "Start date of the last recorded period (YYYY-MM-DD)" },
+        "onboardingCompleted": { "type": "boolean", "description": "Whether female completed the onboarding guide" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "description": "Last updated timestamp" }
+      },
+      "required": ["uid", "secretCode", "partnerConnected", "averageCycleLength", "averagePeriodLength"]
+    },
+    "PairCode": {
+      "title": "PairCode",
+      "description": "Unique secret code mapping to link a male partner directly to a female account",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "description": "The unique secret pairing code" },
+        "femaleUid": { "type": "string", "description": "Auth UID of the female account" },
+        "femaleName": { "type": "string", "description": "Name of the female account owner" },
+        "maleConnected": { "type": "boolean", "description": "Whether male partner has connected" },
+        "maleName": { "type": "string", "description": "Name set by the male partner" },
+        "createdAt": { "type": "string", "description": "Creation timestamp" }
+      },
+      "required": ["code", "femaleUid", "maleConnected"]
+    },
+    "CycleRecord": {
+      "title": "CycleRecord",
+      "description": "Menstrual cycle record with period start and end dates",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique cycle ID" },
+        "femaleUid": { "type": "string", "description": "Owner female UID" },
+        "startDate": { "type": "string", "description": "Period start date YYYY-MM-DD" },
+        "endDate": { "type": "string", "description": "Period end date YYYY-MM-DD" },
+        "cycleLengthDays": { "type": "number", "description": "Total cycle length in days" },
+        "periodDurationDays": { "type": "number", "description": "Period duration in days" },
+        "notes": { "type": "string", "description": "Optional notes on cycle" },
+        "createdAt": { "type": "string", "description": "Timestamp created" }
+      },
+      "required": ["id", "femaleUid", "startDate", "endDate", "periodDurationDays"]
+    },
+    "DailyLog": {
+      "title": "DailyLog",
+      "description": "Daily symptom, mood, energy, and custom note log",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Date YYYY-MM-DD" },
+        "femaleUid": { "type": "string", "description": "Owner female UID" },
+        "date": { "type": "string", "description": "Date YYYY-MM-DD" },
+        "flow": { "type": "string", "enum": ["none", "spotting", "light", "medium", "heavy"], "description": "Flow intensity" },
+        "cramps": { "type": "string", "enum": ["none", "mild", "moderate", "severe"], "description": "Cramp severity" },
+        "crampLocations": { "type": "string", "description": "JSON array string or comma separated locations" },
+        "energyLevel": { "type": "number", "description": "Energy level 1-10 slider value" },
+        "energyLabel": { "type": "string", "description": "Energy text label (High, Balanced, Low, Exhausted)" },
+        "moods": { "type": "string", "description": "Comma separated or JSON string of selected moods" },
+        "symptoms": { "type": "string", "description": "Comma separated or JSON string of symptoms" },
+        "customNote": { "type": "string", "description": "Personal custom daily note" },
+        "updatedAt": { "type": "string", "description": "Timestamp updated" }
+      },
+      "required": ["id", "femaleUid", "date", "flow", "cramps"]
+    }
+  },
+  "firestore": {
+    "/female_users/{femaleUid}": {
+      "schema": "FemaleUser",
+      "description": "Female user profile, cycle configuration, and partner link state"
+    },
+    "/pair_codes/{secretCode}": {
+      "schema": "PairCode",
+      "description": "Unique secret code directory linking male companion to female account"
+    },
+    "/female_users/{femaleUid}/cycles/{cycleId}": {
+      "schema": "CycleRecord",
+      "description": "Cycles logged for the female account"
+    },
+    "/female_users/{femaleUid}/daily_logs/{dateStr}": {
+      "schema": "DailyLog",
+      "description": "Daily symptoms, moods, energy, and custom note entries"
+    }
+  }
+}
