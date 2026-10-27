@@ -21,8 +21,6 @@ import {
   auth,
   db,
   googleProvider,
-  handleFirestoreError,
-  OperationType,
 } from '../firebase/config';
 import {
   signInWithPopup,
@@ -34,8 +32,6 @@ import {
   doc,
   collection,
   onSnapshot,
-  setDoc,
-  updateDoc,
 } from 'firebase/firestore';
 import {
   getOrCreateFemaleProfile,
@@ -47,7 +43,6 @@ import {
   deleteCycleFromFirestore,
   deleteDailyLogFromFirestore,
   purgeSampleDataFromRealUser,
-  seedInitialUserDataIfEmpty,
   unlinkPartner,
   FemaleUserProfile,
 } from '../firebase/cycleService';
@@ -103,6 +98,7 @@ export interface CycleContextType {
   unlinkPartnerFromDb: () => Promise<void>;
   addOrUpdateCycle: (cycle: CycleRecord) => void;
   deleteCycle: (id: string) => void;
+  removePeriodForDate: (dateStr: string) => void;
   quickTogglePeriodForDate: (dateStr: string) => void;
   saveDailyLog: (log: DailyLog) => void;
   deleteDailyLog: (dateStr: string) => void;
@@ -551,16 +547,12 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const cleanName = newName.trim();
     if (!cleanName) return;
 
-    if (settings.femaleUid && !isSampleDemo) {
-      await updateMalePartnerName(settings.femaleUid, settings.secretCode, cleanName);
-    }
-
+    // Immediately apply optimistic update so mobile UI never lags or freezes
     setSettings((prev) => ({
       ...prev,
       partnerName: cleanName,
     }));
 
-    // Update session storage
     try {
       const currentSession = loadStoredSession();
       if (currentSession) {
@@ -568,6 +560,14 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         localStorage.setItem(`${STORAGE_PREFIX}_session`, JSON.stringify(currentSession));
       }
     } catch {}
+
+    if (settings.femaleUid && !isSampleDemo) {
+      try {
+        await updateMalePartnerName(settings.femaleUid, settings.secretCode, cleanName);
+      } catch (err) {
+        console.warn('Could not persist male partner name to Firestore:', err);
+      }
+    }
   };
 
   const unlinkPartnerFromDb = async () => {
@@ -677,10 +677,75 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const deleteCycle = (id: string) => {
     if (userRole === 'male') return;
 
-    setCycles((prev) => prev.filter((c) => c.id !== id));
+    const remainingCycles = cycles.filter((c) => c.id !== id);
+    setCycles(remainingCycles);
+
+    // Sync lastPeriodStartDate if the deleted cycle was the latest one
+    const latestRemaining = remainingCycles[0];
+    const newLastPeriod = latestRemaining ? latestRemaining.startDate : '';
+    if (settings.lastPeriodStartDate && !remainingCycles.some((c) => c.startDate === settings.lastPeriodStartDate)) {
+      setSettings((prev) => ({ ...prev, lastPeriodStartDate: newLastPeriod }));
+      if (settings.femaleUid && !isSampleDemo) {
+        updateFemaleProfileInDb({ lastPeriodStartDate: newLastPeriod }).catch(console.error);
+      }
+    }
+
     const activeUid = settings.femaleUid || firebaseUser?.uid || auth.currentUser?.uid;
     if (activeUid && !isSampleDemo) {
       deleteCycleFromFirestore(activeUid, id).catch(console.error);
+    }
+  };
+
+  const removePeriodForDate = (dateStr: string) => {
+    if (userRole === 'male') {
+      console.warn('Action blocked: Male companion account cannot modify period cycle records.');
+      return;
+    }
+
+    // Clear flow if logged on this date
+    const existingLog = logs.find((l) => l.date === dateStr);
+    if (existingLog && existingLog.flow && existingLog.flow !== 'none') {
+      saveDailyLog({
+        ...existingLog,
+        flow: 'none',
+      });
+    }
+
+    const existingCycle = cycles.find((c) => dateStr >= c.startDate && dateStr <= c.endDate);
+    if (!existingCycle) return;
+
+    if (existingCycle.startDate === dateStr && existingCycle.endDate === dateStr) {
+      deleteCycle(existingCycle.id);
+    } else if (existingCycle.startDate === dateStr) {
+      const nextStart = addDays(dateStr, 1);
+      const newDuration = Math.max(1, existingCycle.periodDurationDays - 1);
+      addOrUpdateCycle({
+        ...existingCycle,
+        startDate: nextStart,
+        periodDurationDays: newDuration,
+      });
+      if (settings.lastPeriodStartDate === dateStr) {
+        updateFemaleProfileInDb({ lastPeriodStartDate: nextStart }).catch(console.error);
+      }
+    } else if (existingCycle.endDate === dateStr) {
+      const nextEnd = addDays(dateStr, -1);
+      const newDuration = Math.max(1, existingCycle.periodDurationDays - 1);
+      addOrUpdateCycle({
+        ...existingCycle,
+        endDate: nextEnd,
+        periodDurationDays: newDuration,
+      });
+    } else {
+      // Split or truncate at date
+      const nextEnd = addDays(dateStr, -1);
+      const startMs = new Date(existingCycle.startDate).getTime();
+      const endMs = new Date(nextEnd).getTime();
+      const newDays = Math.max(1, Math.round((endMs - startMs) / (1000 * 60 * 60 * 24)) + 1);
+      addOrUpdateCycle({
+        ...existingCycle,
+        endDate: nextEnd,
+        periodDurationDays: newDays,
+      });
     }
   };
 
@@ -693,23 +758,7 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const existing = cycles.find((c) => dateStr >= c.startDate && dateStr <= c.endDate);
     if (existing) {
-      if (existing.startDate === dateStr && existing.endDate === dateStr) {
-        deleteCycle(existing.id);
-      } else if (existing.startDate === dateStr) {
-        addOrUpdateCycle({
-          ...existing,
-          startDate: addDays(dateStr, 1),
-          periodDurationDays: Math.max(1, existing.periodDurationDays - 1),
-        });
-      } else if (existing.endDate === dateStr) {
-        addOrUpdateCycle({
-          ...existing,
-          endDate: addDays(dateStr, -1),
-          periodDurationDays: Math.max(1, existing.periodDurationDays - 1),
-        });
-      } else {
-        deleteCycle(existing.id);
-      }
+      removePeriodForDate(dateStr);
     } else {
       const newCycle: CycleRecord = {
         id: `user_cycle_${dateStr}_${Date.now()}`,
@@ -769,6 +818,7 @@ export const CycleProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         unlinkPartnerFromDb,
         addOrUpdateCycle,
         deleteCycle,
+        removePeriodForDate,
         quickTogglePeriodForDate,
         saveDailyLog,
         deleteDailyLog,

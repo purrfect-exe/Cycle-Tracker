@@ -5,10 +5,8 @@ import {
   updateDoc,
   deleteDoc,
   collection,
-  query,
   getDocs,
-  onSnapshot,
-  serverTimestamp,
+  runTransaction
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from './config';
 import { CycleRecord, DailyLog } from '../types/cycle';
@@ -133,30 +131,114 @@ export async function getOrCreateFemaleProfile(
   }
 }
 
+
 /**
- * Save / Update Female Profile
+ * Save / Update Female Profile.
+ * Keeps the female_users and pair_codes documents synchronized
+ * when the secret code or display name changes.
  */
 export async function updateFemaleProfile(
   uid: string,
   updates: Partial<FemaleUserProfile>
 ): Promise<void> {
   const userRef = doc(db, 'female_users', uid);
-  try {
-    await updateDoc(userRef, {
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    });
 
-    // Also update pair_codes if name or code changed
-    if (updates.displayName && updates.secretCode) {
-      await updateDoc(doc(db, 'pair_codes', updates.secretCode), {
-        femaleName: updates.displayName,
+  try {
+    await runTransaction(db, async (transaction) => {
+      // Read the current profile first.
+      const userSnap = await transaction.get(userRef);
+
+      if (!userSnap.exists()) {
+        throw new Error('Female profile not found.');
+      }
+
+      const currentProfile = userSnap.data() as FemaleUserProfile;
+
+      const oldCode = currentProfile.secretCode;
+      const newCode = updates.secretCode?.trim() || oldCode;
+      const name = updates.displayName ?? currentProfile.displayName;
+
+      const oldCodeRef = oldCode
+        ? doc(db, 'pair_codes', oldCode)
+        : null;
+
+      const newCodeRef = newCode
+        ? doc(db, 'pair_codes', newCode)
+        : null;
+
+      // Read all required documents before writing.
+      const oldCodeSnap = oldCodeRef
+        ? await transaction.get(oldCodeRef)
+        : null;
+
+      const codeChanged = newCode !== oldCode;
+
+      const newCodeSnap =
+        newCodeRef && codeChanged
+          ? await transaction.get(newCodeRef)
+          : null;
+
+      // Never overwrite another user's pairing code.
+      if (
+        codeChanged &&
+        newCodeSnap?.exists() &&
+        newCodeSnap.data().femaleUid !== uid
+      ) {
+        throw new Error(
+          'This secret code is already in use. Generate another code.'
+        );
+      }
+
+      const now = new Date().toISOString();
+
+      // Update the female profile.
+      transaction.update(userRef, {
+        ...updates,
+        ...(updates.secretCode !== undefined
+          ? { secretCode: newCode }
+          : {}),
+        updatedAt: now,
       });
-    }
+
+      if (newCodeRef) {
+        // Preserve an existing connection if this code already
+        // belongs to the same female account.
+        const existingNewCode = newCodeSnap?.exists()
+          ? newCodeSnap.data()
+          : {};
+
+        transaction.set(newCodeRef, {
+          code: newCode,
+          femaleUid: uid,
+          femaleName: name,
+          maleConnected:
+            existingNewCode.maleConnected === true,
+          maleName: existingNewCode.maleName || '',
+          createdAt:
+            existingNewCode.createdAt || now,
+        });
+      }
+
+      // Remove the old code only if it belongs to this user.
+      if (
+        codeChanged &&
+        oldCodeRef &&
+        oldCodeSnap?.exists() &&
+        oldCodeSnap.data().femaleUid === uid
+      ) {
+        transaction.delete(oldCodeRef);
+      }
+    });
   } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, `female_users/${uid}`);
+    handleFirestoreError(
+      error,
+      OperationType.UPDATE,
+      `female_users/${uid}`
+    );
+    throw error;
   }
 }
+
 
 /**
  * Connect a Male partner with a Secret Code
@@ -224,14 +306,22 @@ export async function updateMalePartnerName(
       partnerName: cleanName,
       updatedAt: new Date().toISOString(),
     });
-
-    if (secretCode) {
-      await updateDoc(doc(db, 'pair_codes', secretCode), {
-        maleName: cleanName,
-      });
-    }
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `female_users/${femaleUid}`);
+  }
+
+  if (secretCode) {
+    try {
+      const codeRef = doc(db, 'pair_codes', secretCode);
+      const codeSnap = await getDoc(codeRef);
+      if (codeSnap.exists()) {
+        await updateDoc(codeRef, {
+          maleName: cleanName,
+        });
+      }
+    } catch (err) {
+      console.warn('Skipped pair_codes update (code may have changed):', err);
+    }
   }
 }
 

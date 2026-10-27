@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useCycle } from '../../context/CycleContext';
 import { DailyLog } from '../../types/cycle';
 import {
@@ -11,10 +11,8 @@ import {
   Clock,
   ChevronRight,
   CheckCircle2,
-  Sparkles,
 } from 'lucide-react';
 import { DailySymptomLogCard } from '../tracking/DailySymptomLogCard';
-import { ConfirmDialog } from '../common/ConfirmDialog';
 import { MaleDashboard } from './MaleDashboard';
 
 export const HomeDashboard: React.FC = () => {
@@ -27,30 +25,12 @@ export const HomeDashboard: React.FC = () => {
     cycles,
     logs,
     userRole,
-    unlinkPartnerFromDb,
   } = useCycle();
 
   // If male, render dedicated simpler companion dashboard
   if (userRole === 'male') {
     return <MaleDashboard />;
   }
-
-  const [copiedCode, setCopiedCode] = useState(false);
-  const [showUnlinkModal, setShowUnlinkModal] = useState(false);
-  const [unlinking, setUnlinking] = useState(false);
-
-  const handleCopySecretCode = () => {
-    navigator.clipboard.writeText(settings.secretCode);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2000);
-  };
-
-  const handleConfirmUnlink = async () => {
-    setUnlinking(true);
-    await unlinkPartnerFromDb();
-    setUnlinking(false);
-    setShowUnlinkModal(false);
-  };
 
   // Upcoming 10-day forecast preview strip
   const forecastDays = Array.from({ length: 10 }).map((_, i) => {
@@ -292,18 +272,6 @@ export const HomeDashboard: React.FC = () => {
           })}
         </div>
       </div>
-
-      {/* Confirmation Dialog for Unlinking */}
-      <ConfirmDialog
-        isOpen={showUnlinkModal}
-        title="Unlink Partner?"
-        message={`Are you sure you want to disconnect ${settings.partnerName || 'your partner'}? They will no longer see your cycle updates until paired again with a new code.`}
-        confirmLabel="Unlink Partner"
-        cancelLabel="Keep Connected"
-        isDestructive={true}
-        onConfirm={handleConfirmUnlink}
-        onCancel={() => setShowUnlinkModal(false)}
-      />
     </div>
   );
 };

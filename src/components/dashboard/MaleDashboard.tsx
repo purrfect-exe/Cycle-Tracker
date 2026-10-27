@@ -19,6 +19,8 @@ import {
   AlertCircle,
   BarChart2,
   Unlink,
+  Edit2,
+  Check,
 } from 'lucide-react';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 
@@ -107,11 +109,16 @@ export const MaleDashboard: React.FC = () => {
     cycles,
     logs,
     unlinkPartnerFromDb,
+    updateMaleNameInDb,
   } = useCycle();
 
   const [inspectedDate, setInspectedDate] = useState<string>(currentDate);
   const [showUnlinkModal, setShowUnlinkModal] = useState<boolean>(false);
   const [unlinking, setUnlinking] = useState<boolean>(false);
+  const [isEditingNameModal, setIsEditingNameModal] = useState<boolean>(false);
+  const [nameInput, setNameInput] = useState<string>(settings.partnerName || 'Alex');
+  const [isSavingName, setIsSavingName] = useState<boolean>(false);
+  const [nameUpdatedFeedback, setNameUpdatedFeedback] = useState<boolean>(false);
 
   // Today's log submitted by female partner
   const todayLog = logs.find((l: DailyLog) => l.date === currentDate);
@@ -156,8 +163,70 @@ export const MaleDashboard: React.FC = () => {
     setShowUnlinkModal(false);
   };
 
+  const handleUpdateName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = nameInput.trim();
+    if (!clean) return;
+
+    setIsSavingName(true);
+    try {
+      await updateMaleNameInDb(clean);
+      setIsEditingNameModal(false);
+      setNameUpdatedFeedback(true);
+      setTimeout(() => setNameUpdatedFeedback(false), 2000);
+    } catch (err) {
+      console.error(err);
+      setIsEditingNameModal(false);
+    } finally {
+      setIsSavingName(false);
+    }
+  };
+
   return (
-    <div className="space-y-5 font-sans text-slate-800 animate-smooth-appear max-w-5xl mx-auto">
+    <div className="space-y-4 font-sans text-slate-800 animate-smooth-appear max-w-5xl mx-auto">
+      {/* Top Companion Bar: Partner Status, Name Change & Quick Unlink */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 px-1 pb-1">
+        <div className="flex items-center gap-2 text-xs">
+          <span className="font-semibold text-slate-700">
+            Hi, <span className="font-bold text-slate-900">{settings.partnerName || 'Alex'}</span>
+          </span>
+          <span className="text-slate-400">•</span>
+          <span className="text-slate-500">
+            Companion for <span className="font-semibold text-slate-800">{settings.trackerName}</span>
+          </span>
+          {nameUpdatedFeedback && (
+            <span className="text-emerald-600 font-bold text-[11px] flex items-center gap-1 animate-fade-in">
+              <Check className="w-3 h-3" /> Updated
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setNameInput(settings.partnerName || 'Alex');
+              setIsEditingNameModal(true);
+            }}
+            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition-colors flex items-center gap-1 touch-manipulation active:scale-[0.98]"
+          >
+            <Edit2 className="w-3 h-3 text-slate-500" />
+            <span>Change Name</span>
+          </button>
+
+          {settings.partnerConnected && (
+            <button
+              type="button"
+              onClick={() => setShowUnlinkModal(true)}
+              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white border border-slate-200 text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-1 touch-manipulation active:scale-[0.98]"
+            >
+              <Unlink className="w-3 h-3" />
+              <span>Unlink</span>
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* EXECUTIVE DATA HERO: Softer Slate Palette with Gentle Lighting */}
       <div className="bg-[#1E293B] text-slate-100 rounded-3xl p-5 sm:p-7 border border-slate-700/60 shadow-sm relative overflow-hidden">
         {/* Soft background glow */}
@@ -741,6 +810,57 @@ export const MaleDashboard: React.FC = () => {
           })}
         </div>
       </div>
+
+      {/* Name Change Modal for Male Dashboard */}
+      {isEditingNameModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in font-sans">
+          <div className="bg-white w-full max-w-sm rounded-2xl p-5 shadow-xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h3 className="text-sm font-bold text-slate-900">Update Your Name</h3>
+              <button
+                type="button"
+                onClick={() => setIsEditingNameModal(false)}
+                className="text-slate-400 hover:text-slate-700 text-xs font-semibold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateName} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">
+                  How should your name appear to {settings.trackerName}?
+                </label>
+                <input
+                  type="text"
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  placeholder="Enter your name"
+                  className="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingNameModal(false)}
+                  className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 touch-manipulation"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingName}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-xs transition-all touch-manipulation active:scale-[0.98] disabled:opacity-50"
+                >
+                  {isSavingName ? 'Updating...' : 'Update Name'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Confirmation Dialog for Unlink in Male View */}
       <ConfirmDialog

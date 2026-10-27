@@ -15,6 +15,8 @@ import {
   Calendar as CalendarIcon,
   TrendingUp,
   Edit2,
+  Check,
+  Trash2,
 } from 'lucide-react';
 import { InsightsComponent } from '../insights/InsightsComponent';
 
@@ -28,6 +30,8 @@ export const PeriodCalendar: React.FC = () => {
     setSelectedCalendarDate,
     openLogModal,
     addOrUpdateCycle,
+    deleteCycle,
+    removePeriodForDate,
     userRole,
     cycleStatus,
   } = useCycle();
@@ -43,6 +47,7 @@ export const PeriodCalendar: React.FC = () => {
   });
 
   const [isEditingCycleModalOpen, setIsEditingCycleModalOpen] = useState(false);
+  const [editingCycleId, setEditingCycleId] = useState<string | null>(null);
   const [editingCycleStartDate, setEditingCycleStartDate] = useState(currentDate);
   const [editingCycleDuration, setEditingCycleDuration] = useState(5);
 
@@ -89,6 +94,10 @@ export const PeriodCalendar: React.FC = () => {
     }
   );
 
+  const existingCycleForDate = cycles.find(
+    (c) => selectedCalendarDate >= c.startDate && selectedCalendarDate <= c.endDate
+  );
+
   const monthLabel = currentViewDate.toLocaleDateString('en-US', {
     month: 'long',
     year: 'numeric',
@@ -99,8 +108,15 @@ export const PeriodCalendar: React.FC = () => {
     if (isMale) return; // Read-only safety guard
 
     const endDate = addDays(editingCycleStartDate, editingCycleDuration - 1);
+    // Find if a cycle already starts on or covers this start date
+    const existingCovering = cycles.find(
+      (c) => c.id === editingCycleId || (editingCycleStartDate >= c.startDate && editingCycleStartDate <= c.endDate)
+    );
+
+    const targetId = editingCycleId || existingCovering?.id || `cycle-manual-${editingCycleStartDate}-${Date.now()}`;
+
     addOrUpdateCycle({
-      id: `cycle-manual-${editingCycleStartDate}-${Date.now()}`,
+      id: targetId,
       startDate: editingCycleStartDate,
       endDate,
       cycleLengthDays: settings.averageCycleLength,
@@ -192,19 +208,42 @@ export const PeriodCalendar: React.FC = () => {
                   <ChevronRight className="w-4 h-4" />
                 </button>
 
-                {/* Female Only: Log Period button */}
+                {/* Female Only: Log Period or Period Logged button */}
                 {isFemale && (
                   <button
                     type="button"
                     onClick={() => {
-                      setEditingCycleStartDate(selectedCalendarDate);
+                      if (existingCycleForDate) {
+                        setEditingCycleId(existingCycleForDate.id);
+                        setEditingCycleStartDate(existingCycleForDate.startDate);
+                        setEditingCycleDuration(existingCycleForDate.periodDurationDays);
+                      } else {
+                        setEditingCycleId(null);
+                        setEditingCycleStartDate(selectedCalendarDate);
+                        setEditingCycleDuration(settings.averagePeriodLength || 5);
+                      }
                       setIsEditingCycleModalOpen(true);
                     }}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#BC4F4F] hover:bg-[#9E3A3A] text-white transition-all flex items-center gap-1 shadow-2xs active:scale-[0.98]"
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-2xs active:scale-[0.98] touch-manipulation ${
+                      existingCycleForDate
+                        ? 'bg-[#8E2B2B] hover:bg-[#742323] text-white'
+                        : 'bg-[#BC4F4F] hover:bg-[#9E3A3A] text-white'
+                    }`}
+                    title={existingCycleForDate ? 'Period already logged for this date. Click to edit.' : 'Log period start date'}
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Log Period</span>
-                    <span className="sm:hidden">Log</span>
+                    {existingCycleForDate ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Period Logged</span>
+                        <span className="sm:hidden">Logged</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Log Period</span>
+                        <span className="sm:hidden">Log</span>
+                      </>
+                    )}
                   </button>
                 )}
               </div>
@@ -355,13 +394,45 @@ export const PeriodCalendar: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => openLogModal(selectedCalendarDate)}
-                  className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-[#BC4F4F] hover:bg-[#9E3A3A] transition-all flex items-center gap-1.5 self-start sm:self-auto shadow-2xs active:scale-[0.98]"
+                  className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-[#BC4F4F] hover:bg-[#9E3A3A] transition-all flex items-center gap-1.5 self-start sm:self-auto shadow-2xs active:scale-[0.98] touch-manipulation"
                 >
                   <Edit2 className="w-3.5 h-3.5" />
                   <span>{selectedDayInfo.hasLog ? 'Edit Check-in' : '+ Check-in for this Day'}</span>
                 </button>
               )}
             </div>
+
+            {/* Female Dedicated Period Management Banner for this Day */}
+            {isFemale && existingCycleForDate && (
+              <div className="flex flex-wrap items-center justify-between gap-2.5 p-3 rounded-xl bg-[#FCECEC] border border-[#BC4F4F]/30 text-xs animate-fade-in">
+                <div className="flex items-center gap-2 text-[#8E2B2B] font-semibold">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#BC4F4F] shrink-0" />
+                  <span>Period recorded on this date ({existingCycleForDate.startDate} to {existingCycleForDate.endDate})</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => removePeriodForDate(selectedCalendarDate)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#8E2B2B] bg-white border border-[#BC4F4F]/40 hover:bg-[#F8DADA] transition-all touch-manipulation active:scale-[0.98]"
+                    title="Remove this specific day from the recorded period"
+                  >
+                    Remove from this Day
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingCycleId(existingCycleForDate.id);
+                      setEditingCycleStartDate(existingCycleForDate.startDate);
+                      setEditingCycleDuration(existingCycleForDate.periodDurationDays);
+                      setIsEditingCycleModalOpen(true);
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-[#BC4F4F] hover:bg-[#9E3A3A] transition-all touch-manipulation active:scale-[0.98]"
+                  >
+                    Edit Period
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Selected Day 3-Col Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
@@ -450,7 +521,9 @@ export const PeriodCalendar: React.FC = () => {
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in font-sans">
               <div className="bg-white w-full max-w-sm rounded-2xl p-5 shadow-xl border border-[#F3CD97]/50 space-y-4">
                 <div className="flex items-center justify-between pb-2 border-b border-[#F7EFE8]">
-                  <h3 className="text-sm font-bold text-[#261C19]">Log Period Start Date</h3>
+                  <h3 className="text-sm font-bold text-[#261C19]">
+                    {editingCycleId ? 'Edit Recorded Period' : 'Log Period Start Date'}
+                  </h3>
                   <button
                     type="button"
                     onClick={() => setIsEditingCycleModalOpen(false)}
@@ -489,20 +562,38 @@ export const PeriodCalendar: React.FC = () => {
                     />
                   </div>
 
-                  <div className="flex items-center justify-end gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingCycleModalOpen(false)}
-                      className="px-3 py-1.5 text-xs font-semibold text-[#7A5B4F] hover:text-[#261C19]"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#BC4F4F] hover:bg-[#9E3A3A] shadow-xs active:scale-[0.98]"
-                    >
-                      Save Period
-                    </button>
+                  <div className="flex items-center justify-between pt-2">
+                    {editingCycleId ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          deleteCycle(editingCycleId);
+                          setIsEditingCycleModalOpen(false);
+                        }}
+                        className="px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 transition-colors flex items-center gap-1 touch-manipulation"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete Period</span>
+                      </button>
+                    ) : (
+                      <div />
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingCycleModalOpen(false)}
+                        className="px-3 py-1.5 text-xs font-semibold text-[#7A5B4F] hover:text-[#261C19] touch-manipulation"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#BC4F4F] hover:bg-[#9E3A3A] shadow-xs active:scale-[0.98] touch-manipulation"
+                      >
+                        Save Period
+                      </button>
+                    </div>
                   </div>
                 </form>
               </div>

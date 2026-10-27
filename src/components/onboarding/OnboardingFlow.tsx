@@ -4,7 +4,6 @@ import { CycleRecord } from '../../types/cycle';
 import { addDays } from '../../utils/cycleCalculations';
 import {
   Calendar,
-  Sparkles,
   ArrowRight,
   ArrowLeft,
   Copy,

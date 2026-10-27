@@ -1,15 +1,13 @@
 import React, { useState } from 'react';
 import { useCycle } from '../../context/CycleContext';
-import { PHASE_DETAILS, formatDisplayDate } from '../../utils/cycleCalculations';
+import { PHASE_DETAILS } from '../../utils/cycleCalculations';
 import { CyclePhase } from '../../types/cycle';
 import {
-  Users,
   Copy,
   Check,
   Edit2,
   RefreshCw,
   Unlink,
-  Heart,
   ShieldCheck,
   Sparkles,
 } from 'lucide-react';
@@ -33,6 +31,7 @@ export const CoupleModeScreen: React.FC = () => {
   const [copiedCode, setCopiedCode] = useState(false);
   const [editingPartnerName, setEditingPartnerName] = useState(false);
   const [partnerNameInput, setPartnerNameInput] = useState(settings.partnerName || 'Alex');
+  const [isSavingPartnerName, setIsSavingPartnerName] = useState(false);
   const [nameSaveFeedback, setNameSaveFeedback] = useState(false);
   const [selectedPhase, setSelectedPhase] = useState<CyclePhase>(cycleStatus.phase);
   const [isRegenerating, setIsRegenerating] = useState(false);
@@ -62,19 +61,27 @@ export const CoupleModeScreen: React.FC = () => {
 
   const handleSavePartnerName = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!partnerNameInput.trim()) return;
+    const clean = partnerNameInput.trim();
+    if (!clean) return;
 
-    await updateMaleNameInDb(partnerNameInput.trim());
-    setEditingPartnerName(false);
-    setNameSaveFeedback(true);
-    confetti({
-      particleCount: 25,
-      spread: 60,
-      origin: { y: 0.7 },
-      colors: ['#2D6A4F', '#52B788', '#C78B30'],
-    });
-
-    setTimeout(() => setNameSaveFeedback(false), 2000);
+    setIsSavingPartnerName(true);
+    try {
+      await updateMaleNameInDb(clean);
+      setEditingPartnerName(false);
+      setNameSaveFeedback(true);
+      confetti({
+        particleCount: 25,
+        spread: 60,
+        origin: { y: 0.7 },
+        colors: ['#2D6A4F', '#52B788', '#C78B30'],
+      });
+      setTimeout(() => setNameSaveFeedback(false), 2000);
+    } catch (err) {
+      console.error('Error updating male partner name:', err);
+      setEditingPartnerName(false);
+    } finally {
+      setIsSavingPartnerName(false);
+    }
   };
 
   const handleConfirmUnlink = async () => {
@@ -146,14 +153,15 @@ export const CoupleModeScreen: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <button
                     type="submit"
-                    className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors"
+                    disabled={isSavingPartnerName}
+                    className="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors touch-manipulation active:scale-[0.98] disabled:opacity-50"
                   >
-                    Save Name
+                    {isSavingPartnerName ? 'Updating...' : 'Update Name'}
                   </button>
                   <button
                     type="button"
                     onClick={() => setEditingPartnerName(false)}
-                    className="text-xs px-2 py-1 text-slate-500 hover:text-slate-700"
+                    className="text-xs px-2 py-1 text-slate-500 hover:text-slate-700 touch-manipulation"
                   >
                     Cancel
                   </button>

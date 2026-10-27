@@ -44,7 +44,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     setErrorMsg(null);
 
     // =========================================================================
-    // Testing Demo Bypass Codes (Internal Only - Not Rendered on Frontend):
     // Enter 'XXXX' in the pairing code field to open the Female Demo Dashboard (Emma)
     // Enter 'XYXY' in the pairing code field to open the Male Demo Dashboard (Alex)
     // =========================================================================
@@ -62,7 +61,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     }
 
     try {
-      const res = await onLoginMaleWithCode(clean, maleName.trim() || 'Alex');
+      const res = await onLoginMaleWithCode(clean, maleName.trim() || 'Boy');
       if (!res.success) {
         setErrorMsg(res.error || 'Invalid code. Please check with your partner.');
       }
