@@ -15,6 +15,9 @@ export interface CycleRecord {
   isSampleDemo?: boolean;
 }
 
+export type SleepQuality = 'poor' | 'fair' | 'good' | 'excellent';
+export type AppetiteLevel = 'normal' | 'unable_to_eat' | 'difficulty_eating';
+
 export interface DailyLog {
   id: string;
   date: string; // 'YYYY-MM-DD'
@@ -25,6 +28,8 @@ export interface DailyLog {
   energyLabel: EnergyLabel;
   moods: string[]; // e.g. ['Calm', 'Happy', 'Sensitive', 'Anxious', 'Irritable', 'Loving']
   symptoms: string[]; // e.g. ['Bloating', 'Tender Breasts', 'Acne', 'Headache', 'Cravings']
+  sleep?: SleepQuality;
+  appetite?: AppetiteLevel;
   customNote?: string;
   updatedAt: string;
   isSampleDemo?: boolean;

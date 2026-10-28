@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useCycle } from '../../context/CycleContext';
 import { SymptomFrequencyItem, CycleObservation } from '../../types/cycle';
 import { formatDisplayDate } from '../../utils/cycleCalculations';
@@ -30,6 +30,7 @@ import {
   Heart,
   CheckCircle2,
   Smile,
+  ChevronDown,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -43,6 +44,31 @@ export const InsightsComponent: React.FC = () => {
 
   // Sub-tabs for clean navigation without visual crowding
   const [activeSubTab, setActiveSubTab] = useState<'timing' | 'symptoms' | 'changes' | 'summaries'>('timing');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handleClickOutside);
+    return () => {
+      document.removeEventListener('pointerdown', handleClickOutside);
+    };
+  }, []);
+
+  const subTabs = useMemo(() => [
+    { id: 'timing' as const, label: 'Graphs', icon: TrendingUp },
+    { id: 'symptoms' as const, label: 'Symptom Patterns', icon: Activity },
+    { id: 'changes' as const, label: 'Observations', icon: AlertCircle },
+    { id: 'summaries' as const, label: 'Summary', icon: Sparkles },
+  ], []);
+
+  const currentTab = subTabs.find((t) => t.id === activeSubTab) || subTabs[0];
+  const CurrentIcon = currentTab.icon;
 
   // Female customization state
   const [calibrationMode, setCalibrationMode] = useState<'analytics' | 'custom'>(
@@ -59,59 +85,64 @@ export const InsightsComponent: React.FC = () => {
   );
   const [savedFeedback, setSavedFeedback] = useState(false);
 
-  // Prepare last 6 months data for Recharts
-  const sortedCycles = [...cycles].sort((a, b) => a.startDate.localeCompare(b.startDate));
-  const recent6Cycles = sortedCycles.slice(-6);
-
-  const chartData = recent6Cycles.map((c) => {
-    const monthName = new Date(c.startDate + 'T00:00:00').toLocaleDateString('en-US', {
-      month: 'short',
+  // Prepare last 6 months data for Recharts (memoized to eliminate unnecessary reflow on low-end devices)
+  const chartData = useMemo(() => {
+    const sortedCycles = [...cycles].sort((a, b) => a.startDate.localeCompare(b.startDate));
+    const recent6Cycles = sortedCycles.slice(-6);
+    return recent6Cycles.map((c) => {
+      const monthName = new Date(c.startDate + 'T00:00:00').toLocaleDateString('en-US', {
+        month: 'short',
+      });
+      return {
+        month: monthName,
+        fullDate: c.startDate,
+        cycleLength: c.cycleLengthDays || settings.averageCycleLength,
+        periodDuration: c.periodDurationDays,
+        baseline: analytics.meanCycleLength,
+        isConfirmed: c.isConfirmed !== false,
+      };
     });
-    return {
-      month: monthName,
-      fullDate: c.startDate,
-      cycleLength: c.cycleLengthDays || settings.averageCycleLength,
-      periodDuration: c.periodDurationDays,
-      baseline: analytics.meanCycleLength,
-      isConfirmed: c.isConfirmed !== false,
-    };
-  });
+  }, [cycles, settings.averageCycleLength, analytics.meanCycleLength]);
 
-  // Append next projected cycle
-  const nextMonthName = new Date(cycleStatus.nextPeriodStartDate + 'T00:00:00').toLocaleDateString(
-    'en-US',
-    { month: 'short' }
-  );
+  // Append next projected cycle (memoized)
+  const forecastData = useMemo(() => {
+    const nextMonthName = new Date(cycleStatus.nextPeriodStartDate + 'T00:00:00').toLocaleDateString(
+      'en-US',
+      { month: 'short' }
+    );
+    return [
+      ...chartData,
+      {
+        month: `${nextMonthName} (Est)`,
+        fullDate: cycleStatus.nextPeriodStartDate,
+        cycleLength: Math.round(analytics.weightedCycleLength),
+        periodDuration: Math.round(analytics.averagePeriodLength),
+        baseline: analytics.meanCycleLength,
+        isEstimate: true,
+        isConfirmed: false,
+      },
+    ];
+  }, [chartData, cycleStatus.nextPeriodStartDate, analytics.weightedCycleLength, analytics.averagePeriodLength, analytics.meanCycleLength]);
 
-  const forecastData = [
-    ...chartData,
-    {
-      month: `${nextMonthName} (Est)`,
-      fullDate: cycleStatus.nextPeriodStartDate,
-      cycleLength: Math.round(analytics.weightedCycleLength),
-      periodDuration: Math.round(analytics.averagePeriodLength),
-      baseline: analytics.meanCycleLength,
-      isEstimate: true,
-      isConfirmed: false,
-    },
-  ];
-
-  // Energy by phase chart data
-  const energyChartData = [
+  // Energy by phase chart data (memoized)
+  const energyChartData = useMemo(() => [
     { phase: 'Period (Days 1–5)', energy: symptomInsights.energyByPhase.menstrual, color: '#BC4F4F' },
     { phase: 'Rising (Days 6–12)', energy: symptomInsights.energyByPhase.follicular, color: '#E98B50' },
     { phase: 'Peak (Days 13–16)', energy: symptomInsights.energyByPhase.ovulatory, color: '#D97706' },
     { phase: 'Luteal (Days 17–28)', energy: symptomInsights.energyByPhase.luteal, color: '#8E2B2B' },
-  ];
+  ], [symptomInsights.energyByPhase]);
 
-  // Top symptoms chart data
-  const symptomChartData = symptomInsights.topSymptoms.slice(0, 6).map((s: SymptomFrequencyItem) => ({
-    name: s.name,
-    count: s.count,
-    percentage: s.percentage,
-    phase: s.commonPhase,
-    days: s.commonCycleDays.length > 0 ? `Days ${s.commonCycleDays.slice(0, 3).join(', ')}` : 'Various',
-  }));
+  // Top symptoms chart data (memoized)
+  const symptomChartData = useMemo(() => 
+    symptomInsights.topSymptoms.slice(0, 6).map((s: SymptomFrequencyItem) => ({
+      name: s.name,
+      count: s.count,
+      percentage: s.percentage,
+      phase: s.commonPhase,
+      days: s.commonCycleDays.length > 0 ? `Days ${s.commonCycleDays.slice(0, 3).join(', ')}` : 'Various',
+    })),
+    [symptomInsights.topSymptoms]
+  );
 
   const handleSaveCalibration = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -198,63 +229,90 @@ export const InsightsComponent: React.FC = () => {
           </div>
         </div>
 
-        {/* Segmented Sub-Navigation for Clean, Focused Exploring */}
-        <div className="flex items-center gap-1.5 p-1 bg-[#FAF6F0] rounded-xl overflow-x-auto scrollbar-none border border-[#F3CD97]/30">
+        {/* Drop Down Selection for 6 Month Insights (Options appear directly below, no modal) */}
+        <div className="relative w-full sm:w-72" ref={dropdownRef}>
+          <label className="block text-[10px] font-bold text-[#7A5B4F] uppercase tracking-wider mb-1">
+            Section
+          </label>
+
+          {/* Input Dropdown Button */}
           <button
             type="button"
-            onClick={() => setActiveSubTab('timing')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
-              activeSubTab === 'timing'
-                ? isMale
-                  ? 'bg-slate-900 text-white shadow-2xs'
-                  : 'bg-[#BC4F4F] text-white shadow-2xs'
-                : 'text-[#7A5B4F] hover:text-[#261C19]'
-            }`}
+            onClick={() => setIsDropdownOpen((prev) => !prev)}
+            aria-expanded={isDropdownOpen}
+            aria-haspopup="listbox"
+            className="w-full flex items-center justify-between gap-2.5 px-3.5 py-2.5 rounded-xl bg-[#FAF6F0] hover:bg-[#F4ECE2] border border-[#F3CD97]/70 text-[#261C19] font-bold text-xs sm:text-sm shadow-2xs transition-all touch-manipulation active:scale-[0.99] min-h-[42px]"
           >
-            Graphs
+            <div className="flex items-center gap-2.5 truncate">
+              <div
+                className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
+                  isMale ? 'bg-slate-900 text-white' : 'bg-[#BC4F4F] text-white'
+                }`}
+              >
+                <CurrentIcon className="w-3.5 h-3.5" />
+              </div>
+              <span className="truncate">{currentTab.label}</span>
+            </div>
+
+            <ChevronDown
+              className={`w-4 h-4 text-[#7A5B4F] shrink-0 transition-transform duration-200 ${
+                isDropdownOpen ? 'rotate-180 text-[#261C19]' : ''
+              }`}
+            />
           </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveSubTab('symptoms')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
-              activeSubTab === 'symptoms'
-                ? isMale
-                  ? 'bg-slate-900 text-white shadow-2xs'
-                  : 'bg-[#BC4F4F] text-white shadow-2xs'
-                : 'text-[#7A5B4F] hover:text-[#261C19]'
-            }`}
-          >
-            Symptom Patterns
-          </button>
+          {/* Options Dropdown Menu - Appears directly below the input drop down, NO modal */}
+          {isDropdownOpen && (
+            <div
+              role="listbox"
+              className="absolute left-0 right-0 top-full mt-1.5 z-30 bg-white rounded-xl shadow-lg border border-[#F3CD97]/80 py-1 overflow-hidden animate-fade-in divide-y divide-[#F7EFE8]/70"
+            >
+              {subTabs.map((tab) => {
+                const isSelected = activeSubTab === tab.id;
+                const TabIcon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => {
+                      setActiveSubTab(tab.id);
+                      setIsDropdownOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs sm:text-sm text-left transition-colors touch-manipulation ${
+                      isSelected
+                        ? isMale
+                          ? 'bg-slate-100 text-slate-900 font-bold'
+                          : 'bg-[#FCECEC] text-[#BC4F4F] font-bold'
+                        : 'text-[#5A4036] hover:bg-[#FAF6F0]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 truncate">
+                      <TabIcon
+                        className={`w-4 h-4 shrink-0 ${
+                          isSelected
+                            ? isMale
+                              ? 'text-slate-900'
+                              : 'text-[#BC4F4F]'
+                            : 'text-[#7A5B4F]'
+                        }`}
+                      />
+                      <span className="truncate">{tab.label}</span>
+                    </div>
 
-          <button
-            type="button"
-            onClick={() => setActiveSubTab('changes')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
-              activeSubTab === 'changes'
-                ? isMale
-                  ? 'bg-slate-900 text-white shadow-2xs'
-                  : 'bg-[#BC4F4F] text-white shadow-2xs'
-                : 'text-[#7A5B4F] hover:text-[#261C19]'
-            }`}
-          >
-            <span>Observations</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveSubTab('summaries')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
-              activeSubTab === 'summaries'
-                ? isMale
-                  ? 'bg-slate-900 text-white shadow-2xs'
-                  : 'bg-[#BC4F4F] text-white shadow-2xs'
-                : 'text-[#7A5B4F] hover:text-[#261C19]'
-            }`}
-          >
-            Summary
-          </button>
+                    {isSelected && (
+                      <Check
+                        className={`w-4 h-4 shrink-0 ${
+                          isMale ? 'text-slate-900' : 'text-[#BC4F4F]'
+                        }`}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -323,6 +381,7 @@ export const InsightsComponent: React.FC = () => {
                   />
                   <ReferenceLine y={analytics.meanCycleLength} stroke="#D97706" strokeDasharray="4 4" />
                   <Area
+                    isAnimationActive={false}
                     type="monotone"
                     dataKey="cycleLength"
                     stroke="#BC4F4F"
@@ -368,7 +427,7 @@ export const InsightsComponent: React.FC = () => {
                       return null;
                     }}
                   />
-                  <Bar dataKey="periodDuration" fill="#BC4F4F" radius={[6, 6, 0, 0]} maxBarSize={36} />
+                  <Bar isAnimationActive={false} dataKey="periodDuration" fill="#BC4F4F" radius={[6, 6, 0, 0]} maxBarSize={36} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -457,7 +516,7 @@ export const InsightsComponent: React.FC = () => {
                       return null;
                     }}
                   />
-                  <Bar dataKey="energy" radius={[6, 6, 0, 0]} maxBarSize={44}>
+                  <Bar isAnimationActive={false} dataKey="energy" radius={[6, 6, 0, 0]} maxBarSize={44}>
                     {energyChartData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}

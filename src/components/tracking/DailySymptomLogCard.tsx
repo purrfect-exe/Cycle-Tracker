@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useCycle } from '../../context/CycleContext';
-import { DailyLog, FlowLevel, CrampLevel, EnergyLabel, CycleRecord } from '../../types/cycle';
+import { DailyLog, FlowLevel, CrampLevel, EnergyLabel, CycleRecord, SleepQuality, AppetiteLevel } from '../../types/cycle';
 import {
   Calendar,
   Smile,
@@ -10,6 +10,8 @@ import {
   FileText,
   Check,
   ChevronRight,
+  Moon,
+  Utensils,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { ModalSelectDropdown, ModalSelectOption } from '../common/ModalSelectDropdown';
@@ -38,6 +40,8 @@ export const DailySymptomLogCard: React.FC<DailySymptomLogCardProps> = ({
   const [energyLevel, setEnergyLevel] = useState<number>(7);
   const [moods, setMoods] = useState<string[]>([]);
   const [symptoms, setSymptoms] = useState<string[]>([]);
+  const [sleep, setSleep] = useState<SleepQuality | undefined>(undefined);
+  const [appetite, setAppetite] = useState<AppetiteLevel | undefined>(undefined);
   const [customNote, setCustomNote] = useState<string>('');
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
 
@@ -49,6 +53,8 @@ export const DailySymptomLogCard: React.FC<DailySymptomLogCardProps> = ({
       setEnergyLevel(existingLog.energyLevel || 7);
       setMoods(existingLog.moods || []);
       setSymptoms(existingLog.symptoms || []);
+      setSleep(existingLog.sleep);
+      setAppetite(existingLog.appetite);
       setCustomNote(existingLog.customNote || '');
     } else {
       setFlow(isPeriodDay ? 'medium' : 'none');
@@ -57,6 +63,8 @@ export const DailySymptomLogCard: React.FC<DailySymptomLogCardProps> = ({
       setEnergyLevel(7);
       setMoods(['Calm']);
       setSymptoms([]);
+      setSleep(undefined);
+      setAppetite(undefined);
       setCustomNote('');
     }
   }, [existingLog, activeDate, isPeriodDay]);
@@ -90,6 +98,8 @@ export const DailySymptomLogCard: React.FC<DailySymptomLogCardProps> = ({
       energyLabel: energyInfo.label,
       moods,
       symptoms,
+      sleep,
+      appetite,
       customNote: customNote.trim() ? customNote.trim() : undefined,
       updatedAt: new Date().toISOString(),
     };
@@ -140,6 +150,19 @@ export const DailySymptomLogCard: React.FC<DailySymptomLogCardProps> = ({
     { id: 'mild', label: 'Mild' },
     { id: 'moderate', label: 'Moderate' },
     { id: 'severe', label: 'Severe' },
+  ];
+
+  const sleepOptions: ModalSelectOption<SleepQuality>[] = [
+    { id: 'poor', label: 'Poor' },
+    { id: 'fair', label: 'Fair' },
+    { id: 'good', label: 'Good' },
+    { id: 'excellent', label: 'Excellent' },
+  ];
+
+  const appetiteOptions: ModalSelectOption<AppetiteLevel>[] = [
+    { id: 'normal', label: 'Normal' },
+    { id: 'unable_to_eat', label: 'Unable to Eat' },
+    { id: 'difficulty_eating', label: 'Difficulty Eating' },
   ];
 
   const commonMoods = [
@@ -227,6 +250,32 @@ export const DailySymptomLogCard: React.FC<DailySymptomLogCardProps> = ({
             options={crampOptions}
             onChange={(val) => setCramps(val)}
             modalTitle="Select Cramps"
+          />
+        </div>
+
+        {/* Column 3: Sleep */}
+        <div className="space-y-1.5">
+          <ModalSelectDropdown<SleepQuality>
+            label="Sleep"
+            icon={<Moon className="w-3.5 h-3.5 text-indigo-500" />}
+            value={sleep}
+            options={sleepOptions}
+            onChange={(val) => setSleep(val)}
+            placeholder="Select sleep"
+            modalTitle="Select Sleep"
+          />
+        </div>
+
+        {/* Column 4: Appetite */}
+        <div className="space-y-1.5">
+          <ModalSelectDropdown<AppetiteLevel>
+            label="Appetite"
+            icon={<Utensils className="w-3.5 h-3.5 text-emerald-600" />}
+            value={appetite}
+            options={appetiteOptions}
+            onChange={(val) => setAppetite(val)}
+            placeholder="Select appetite"
+            modalTitle="Select Appetite"
           />
         </div>
       </div>

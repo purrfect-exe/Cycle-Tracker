@@ -31,12 +31,12 @@ service cloud.firestore {
         && request.resource.data.code == secretCode
         && request.resource.data.femaleUid == request.auth.uid;
 
-      // Male companion updates code when connecting with his name
+      // Male companion updates code when connecting with his name or registering push token
       allow update: if isValidId(secretCode)
         && (
           (isSignedIn() && resource.data.femaleUid == request.auth.uid)
           || (
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['maleConnected', 'maleName', 'updatedAt'])
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['maleConnected', 'maleName', 'maleFcmToken', 'maleNotificationsEnabled', 'updatedAt'])
             && request.resource.data.maleName is string
           )
         );
@@ -57,12 +57,12 @@ service cloud.firestore {
         && request.auth.uid == femaleUid
         && request.resource.data.uid == femaleUid;
 
-      // Female owner can update profile; male companion can connect or update partnerName
+      // Female owner can update profile; male companion can connect, update partnerName, or register push token
       allow update: if isValidId(femaleUid)
         && (
           isOwner(femaleUid)
           || (
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['partnerConnected', 'partnerName', 'partnerConnectedAt', 'updatedAt'])
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['partnerConnected', 'partnerName', 'partnerConnectedAt', 'partnerFcmToken', 'partnerNotificationsEnabled', 'updatedAt'])
             && request.resource.data.partnerName is string
           )
         );

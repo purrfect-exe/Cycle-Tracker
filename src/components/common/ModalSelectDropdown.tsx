@@ -11,7 +11,7 @@ export interface ModalSelectDropdownProps<T extends string = string> {
   /** Field label displayed above the dropdown trigger */
   label: string;
   /** Currently selected option id */
-  value: T;
+  value?: T;
   /** Array of available options */
   options: ModalSelectOption<T>[];
   /** Callback triggered when a new option is selected */

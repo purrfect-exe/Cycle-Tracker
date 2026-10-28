@@ -326,6 +326,62 @@ export async function updateMalePartnerName(
 }
 
 /**
+ * Persist FCM Push Notification token for female user in Firestore
+ */
+export async function updateFemaleFcmToken(
+  femaleUid: string,
+  token: string | null,
+  enabled: boolean
+): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'female_users', femaleUid), {
+      fcmToken: token || null,
+      notificationsEnabled: enabled,
+      fcmTokenUpdatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `female_users/${femaleUid}`);
+  }
+}
+
+/**
+ * Persist FCM Push Notification token for male companion in Firestore
+ */
+export async function updateMaleFcmToken(
+  femaleUid: string,
+  secretCode: string,
+  token: string | null,
+  enabled: boolean
+): Promise<void> {
+  try {
+    await updateDoc(doc(db, 'female_users', femaleUid), {
+      partnerFcmToken: token || null,
+      partnerNotificationsEnabled: enabled,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `female_users/${femaleUid}`);
+  }
+
+  if (secretCode) {
+    try {
+      const codeRef = doc(db, 'pair_codes', secretCode);
+      const codeSnap = await getDoc(codeRef);
+      if (codeSnap.exists()) {
+        await updateDoc(codeRef, {
+          maleFcmToken: token || null,
+          maleNotificationsEnabled: enabled,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      console.warn('Skipped pair_codes FCM token update:', err);
+    }
+  }
+}
+
+/**
  * Save daily log in Firestore
  */
 export async function saveDailyLogToFirestore(

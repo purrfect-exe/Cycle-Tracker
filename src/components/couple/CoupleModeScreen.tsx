@@ -14,6 +14,7 @@ import {
 import confetti from 'canvas-confetti';
 import { generateUniqueSecretCode } from '../../firebase/cycleService';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { NotificationSettingsCard } from './NotificationSettingsCard';
 
 export const CoupleModeScreen: React.FC = () => {
   const {
@@ -244,6 +245,9 @@ export const CoupleModeScreen: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Push Notifications Settings Card */}
+      <NotificationSettingsCard />
 
       {/* Cycle Phase Guide:
           - FOR MALE: Direct concise info + TOP 3 SUGGESTIONS FOR EACH PHASE

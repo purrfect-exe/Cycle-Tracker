@@ -21,6 +21,9 @@ import {
   Unlink,
   Edit2,
   Check,
+  Moon,
+  Utensils,
+  FileText,
 } from 'lucide-react';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 
@@ -184,49 +187,6 @@ export const MaleDashboard: React.FC = () => {
 
   return (
     <div className="space-y-4 font-sans text-slate-800 animate-smooth-appear max-w-5xl mx-auto">
-      {/* Top Companion Bar: Partner Status, Name Change & Quick Unlink */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 px-1 pb-1">
-        <div className="flex items-center gap-2 text-xs">
-          <span className="font-semibold text-slate-700">
-            Hi, <span className="font-bold text-slate-900">{settings.partnerName || 'Alex'}</span>
-          </span>
-          <span className="text-slate-400">•</span>
-          <span className="text-slate-500">
-            Companion for <span className="font-semibold text-slate-800">{settings.trackerName}</span>
-          </span>
-          {nameUpdatedFeedback && (
-            <span className="text-emerald-600 font-bold text-[11px] flex items-center gap-1 animate-fade-in">
-              <Check className="w-3 h-3" /> Updated
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setNameInput(settings.partnerName || 'Alex');
-              setIsEditingNameModal(true);
-            }}
-            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-indigo-600 transition-colors flex items-center gap-1 touch-manipulation active:scale-[0.98]"
-          >
-            <Edit2 className="w-3 h-3 text-slate-500" />
-            <span>Change Name</span>
-          </button>
-
-          {settings.partnerConnected && (
-            <button
-              type="button"
-              onClick={() => setShowUnlinkModal(true)}
-              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white border border-slate-200 text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-1 touch-manipulation active:scale-[0.98]"
-            >
-              <Unlink className="w-3 h-3" />
-              <span>Unlink</span>
-            </button>
-          )}
-        </div>
-      </div>
-
       {/* EXECUTIVE DATA HERO: Softer Slate Palette with Gentle Lighting */}
       <div className="bg-[#1E293B] text-slate-100 rounded-3xl p-5 sm:p-7 border border-slate-700/60 shadow-sm relative overflow-hidden">
         {/* Soft background glow */}
@@ -286,22 +246,6 @@ export const MaleDashboard: React.FC = () => {
                   />
                 </div>
               </div>
-            </div>
-
-            {/* Simple Phase Badge */}
-            <div className="mt-3.5 flex flex-col items-center gap-1">
-              <span
-                className={`inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold border ${phaseInfo.badgeBg} ${phaseInfo.badgeBorder} ${phaseInfo.badgeText}`}
-              >
-                <span
-                  className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: phaseInfo.ringColor }}
-                />
-                {phaseInfo.simpleName}
-              </span>
-              <span className="text-[11px] text-slate-300 max-w-xs leading-snug">
-                {phaseInfo.plainMeaning}
-              </span>
             </div>
           </div>
 
@@ -363,15 +307,6 @@ export const MaleDashboard: React.FC = () => {
                     <Flame className="w-3.5 h-3.5 text-amber-400" />
                     <span>Vitality Window</span>
                   </div>
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
-                      phaseInfo.vitalityScore >= 3
-                        ? 'bg-amber-500/15 text-amber-300 border-amber-400/25'
-                        : 'bg-slate-700/60 text-slate-300 border-slate-600'
-                    }`}
-                  >
-                    {phaseInfo.vitalityPhase}
-                  </span>
                 </div>
 
                 <div className="mt-2">
@@ -425,7 +360,7 @@ export const MaleDashboard: React.FC = () => {
                   </span>
                   <span className="text-slate-400 font-normal">/ 10</span>
                   <span className="text-[11px] text-slate-300 font-medium">
-                    ({todayLog ? 'Checked In Today' : 'Typical for this day'})
+                    ({todayLog ? 'Checked In Today' : 'Yet to check-in'})
                   </span>
                 </div>
               </div>
@@ -456,190 +391,307 @@ export const MaleDashboard: React.FC = () => {
                   <span>7-10 (Feeling Great)</span>
                 </div>
               </div>
-
-              <div className="text-xs text-slate-300 flex items-center justify-between pt-1 border-t border-slate-700/60">
-                <span className="text-slate-400">Current status:</span>
-                <span className="font-semibold text-slate-200">{phaseInfo.bodyFeeling}</span>
-              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* TODAY'S VITALS & SYMPTOM SUMMARY (COMPACT STATUS INDICATORS & ICONS) */}
+      {/* TODAY'S UPDATES (ACCURATE REAL-TIME DATA & FULL UNTRUNCATED SYMPTOMS) */}
       <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/90 shadow-2xs space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700">
               <Activity className="w-4 h-4 text-sky-600" />
             </div>
             <div>
               <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                Today's Vitals at a Glance
+                Today's Updates
               </h2>
               <div className="text-[11px] text-slate-500">
-                {todayLog ? 'Live check-in recorded by your partner' : 'Estimated daily baseline'}
+                {todayLog
+                  ? 'Live check-in recorded by your partner'
+                  : `Waiting for ${settings.trackerName || 'partner'} to submit today's check-in`}
               </div>
             </div>
           </div>
 
           {todayLog ? (
-            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
               <CheckCircle2 className="w-3.5 h-3.5" />
               <span>Checked in today</span>
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-              <span>Day {cycleStatus.currentCycleDay} Estimate</span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+              <Clock className="w-3.5 h-3.5 text-amber-600" />
+              <span>Yet to check-in</span>
             </span>
           )}
         </div>
 
-        {/* 4 Compact Data Status Tiles with Icons */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {/* Tile 1: Bleeding / Flow */}
-          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                Bleeding
-              </span>
-              <Droplet
-                className={`w-4 h-4 ${
-                  todayLog && todayLog.flow !== 'none' ? 'text-rose-600' : 'text-slate-400'
-                }`}
-              />
-            </div>
-            <div className="my-2">
-              <div className="text-sm font-bold text-slate-900 capitalize flex items-center gap-1.5">
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    todayLog && todayLog.flow !== 'none'
-                      ? 'bg-rose-500'
-                      : cycleStatus.isPeriodActiveToday
-                      ? 'bg-rose-500'
-                      : 'bg-slate-300'
-                  }`}
-                />
-                <span>
-                  {todayLog
-                    ? todayLog.flow !== 'none'
-                      ? `${todayLog.flow} flow`
-                      : 'No bleeding'
-                    : cycleStatus.isPeriodActiveToday
-                    ? 'Active Period'
-                    : 'No bleeding'}
-                </span>
+        {!todayLog ? (
+          /* Accurate Unlogged State - No misleading simulated defaults */
+          <div className="space-y-4 animate-fade-in">
+            {/* Awaiting Tiles - clearly showing pending status */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200 flex flex-col justify-between opacity-80">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Flow
+                  </span>
+                  <Droplet className="w-4 h-4 text-slate-400" />
+                </div>
+                <div className="my-2">
+                  <span className="text-xs sm:text-sm font-bold text-slate-600">Not logged yet</span>
+                </div>
+                <div className="text-[10px] text-slate-400">Awaiting check-in</div>
+              </div>
+
+              <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200 flex flex-col justify-between opacity-80">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Cramps
+                  </span>
+                  <Activity className="w-4 h-4 text-slate-400" />
+                </div>
+                <div className="my-2">
+                  <span className="text-xs sm:text-sm font-bold text-slate-600">Not logged yet</span>
+                </div>
+                <div className="text-[10px] text-slate-400">Awaiting check-in</div>
+              </div>
+
+              <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200 flex flex-col justify-between opacity-80">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Sleep
+                  </span>
+                  <Moon className="w-4 h-4 text-slate-400" />
+                </div>
+                <div className="my-2">
+                  <span className="text-xs sm:text-sm font-bold text-slate-600">Not logged yet</span>
+                </div>
+                <div className="text-[10px] text-slate-400">Awaiting check-in</div>
+              </div>
+
+              <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200 flex flex-col justify-between opacity-80">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Appetite
+                  </span>
+                  <Utensils className="w-4 h-4 text-slate-400" />
+                </div>
+                <div className="my-2">
+                  <span className="text-xs sm:text-sm font-bold text-slate-600">Not logged yet</span>
+                </div>
+                <div className="text-[10px] text-slate-400">Awaiting check-in</div>
               </div>
             </div>
-            <div className="text-[10px] text-slate-500">
-              {todayLog?.flow !== 'none' ? 'Period in progress' : 'Not bleeding today'}
-            </div>
           </div>
+        ) : (
+          /* Live Logged State - Full Non-Truncated Information */
+          <div className="space-y-4 animate-fade-in">
+            {/* 4 Core Logged Vitals Tiles */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {/* Tile 1: Bleeding / Flow */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Bleeding
+                  </span>
+                  <Droplet
+                    className={`w-4 h-4 ${
+                      todayLog.flow !== 'none' ? 'text-rose-600' : 'text-slate-400'
+                    }`}
+                  />
+                </div>
+                <div className="my-2">
+                  <div className="text-xs sm:text-sm font-bold text-slate-900 capitalize flex items-center gap-1.5">
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${
+                        todayLog.flow !== 'none' ? 'bg-rose-500' : 'bg-slate-300'
+                      }`}
+                    />
+                    <span>{todayLog.flow !== 'none' ? `${todayLog.flow} flow` : 'No bleeding'}</span>
+                  </div>
+                </div>
+                <div className="text-[10px] text-slate-500">
+                  {todayLog.flow !== 'none' ? 'Period in progress' : 'Not bleeding today'}
+                </div>
+              </div>
 
-          {/* Tile 2: Cramps & Discomfort */}
-          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                Cramps
-              </span>
-              <Activity
-                className={`w-4 h-4 ${
-                  todayLog && todayLog.cramps !== 'none' ? 'text-amber-500' : 'text-slate-400'
-                }`}
-              />
-            </div>
-            <div className="my-2">
-              <div className="text-sm font-bold text-slate-900 capitalize flex items-center gap-1.5">
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    todayLog?.cramps === 'severe'
-                      ? 'bg-rose-500'
-                      : todayLog?.cramps === 'moderate'
-                      ? 'bg-amber-500'
-                      : todayLog?.cramps === 'mild'
-                      ? 'bg-yellow-400'
-                      : 'bg-emerald-400'
-                  }`}
-                />
-                <span>
-                  {todayLog ? (todayLog.cramps !== 'none' ? `${todayLog.cramps} cramps` : 'No cramps') : 'None expected'}
-                </span>
+              {/* Tile 2: Cramps */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Cramps
+                  </span>
+                  <Activity
+                    className={`w-4 h-4 ${
+                      todayLog.cramps !== 'none' ? 'text-amber-500' : 'text-slate-400'
+                    }`}
+                  />
+                </div>
+                <div className="my-2">
+                  <div className="text-xs sm:text-sm font-bold text-slate-900 capitalize flex items-center gap-1.5">
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${
+                        todayLog.cramps === 'severe'
+                          ? 'bg-rose-500'
+                          : todayLog.cramps === 'moderate'
+                          ? 'bg-amber-500'
+                          : todayLog.cramps === 'mild'
+                          ? 'bg-yellow-400'
+                          : 'bg-emerald-400'
+                      }`}
+                    />
+                    <span>{todayLog.cramps !== 'none' ? `${todayLog.cramps} cramps` : 'No cramps'}</span>
+                  </div>
+                </div>
+                <div className="text-[10px] text-slate-500">
+                  {todayLog.crampLocations && todayLog.crampLocations.length > 0
+                    ? todayLog.crampLocations.join(', ')
+                    : 'Physical comfort normal'}
+                </div>
+              </div>
+
+              {/* Tile 3: Sleep */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Sleep
+                  </span>
+                  <Moon className="w-4 h-4 text-indigo-500" />
+                </div>
+                <div className="my-2">
+                  <div className="text-xs sm:text-sm font-bold text-slate-900 capitalize flex items-center gap-1.5">
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${
+                        todayLog.sleep === 'poor'
+                          ? 'bg-rose-400'
+                          : todayLog.sleep === 'fair'
+                          ? 'bg-amber-400'
+                          : todayLog.sleep === 'good'
+                          ? 'bg-emerald-400'
+                          : todayLog.sleep === 'excellent'
+                          ? 'bg-indigo-500'
+                          : 'bg-slate-300'
+                      }`}
+                    />
+                    <span>
+                      {todayLog.sleep
+                        ? todayLog.sleep.charAt(0).toUpperCase() + todayLog.sleep.slice(1)
+                        : 'Not specified'}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-[10px] text-slate-500">Sleep & rest quality</div>
+              </div>
+
+              {/* Tile 4: Appetite */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    Appetite
+                  </span>
+                  <Utensils className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div className="my-2">
+                  <div className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${
+                        todayLog.appetite === 'normal'
+                          ? 'bg-emerald-400'
+                          : todayLog.appetite === 'difficulty_eating'
+                          ? 'bg-amber-400'
+                          : todayLog.appetite === 'unable_to_eat'
+                          ? 'bg-rose-500'
+                          : 'bg-slate-300'
+                      }`}
+                    />
+                    <span>
+                      {todayLog.appetite === 'normal'
+                        ? 'Normal'
+                        : todayLog.appetite === 'unable_to_eat'
+                        ? 'Unable to Eat'
+                        : todayLog.appetite === 'difficulty_eating'
+                        ? 'Difficulty Eating'
+                        : 'Not specified'}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-[10px] text-slate-500">Daily nutrition</div>
               </div>
             </div>
-            <div className="text-[10px] text-slate-500">
-              {todayLog?.crampLocations && todayLog.crampLocations.length > 0
-                ? todayLog.crampLocations.join(', ')
-                : 'Physical comfort normal'}
-            </div>
-          </div>
 
-          {/* Tile 3: Mood & Feelings */}
-          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                Mood
-              </span>
-              <Smile className="w-4 h-4 text-sky-600" />
-            </div>
-            <div className="my-2">
-              <div className="text-sm font-bold text-slate-900 truncate">
-                {todayLog && todayLog.moods && todayLog.moods.length > 0
-                  ? todayLog.moods.join(', ')
-                  : cycleStatus.phase === 'ovulatory'
-                  ? 'Happy & Radiant'
-                  : cycleStatus.phase === 'menstrual'
-                  ? 'Quiet & Resting'
-                  : 'Calm & Steady'}
+            {/* Emotions & Mood - Full flexible wrapped layout, no cut off */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                  <Smile className="w-3.5 h-3.5 text-sky-600" />
+                  <span>Emotions & Mood</span>
+                </div>
+                {todayLog.moods && todayLog.moods.length > 0 && (
+                  <span className="text-[10px] font-bold text-slate-500">
+                    {todayLog.moods.length} tagged
+                  </span>
+                )}
               </div>
+              {todayLog.moods && todayLog.moods.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  {todayLog.moods.map((m, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2.5 py-1 rounded-xl bg-white text-slate-800 text-xs font-semibold border border-slate-200/90 shadow-2xs flex items-center gap-1.5"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                      <span>{m}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-xs text-slate-500 italic">No specific emotions tagged for today</div>
+              )}
             </div>
-            <div className="text-[10px] text-slate-500">
-              Overall emotional vibe
-            </div>
-          </div>
 
-          {/* Tile 4: Physical Symptoms */}
-          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                Symptoms
-              </span>
-              <AlertCircle className="w-4 h-4 text-indigo-500" />
-            </div>
-            <div className="my-2">
-              <div className="text-sm font-bold text-slate-900 truncate">
-                {todayLog && todayLog.symptoms && todayLog.symptoms.length > 0
-                  ? `${todayLog.symptoms.length} reported`
-                  : 'None logged'}
+            {/* Physical Sensations & Symptoms - Full flexible wrapped layout, NO slice(0, 2) or ellipsis cutoffs! */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/90 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Physical Sensations & Symptoms</span>
+                </div>
+                {todayLog.symptoms && todayLog.symptoms.length > 0 && (
+                  <span className="text-[10px] font-bold text-amber-700">
+                    {todayLog.symptoms.length} reported
+                  </span>
+                )}
               </div>
+              {todayLog.symptoms && todayLog.symptoms.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  {todayLog.symptoms.map((s, idx) => (
+                    <span
+                      key={idx}
+                      className="px-2.5 py-1 rounded-xl bg-[#FEF7EB] text-[#7A5016] text-xs font-semibold border border-[#E8C588]/80 shadow-2xs flex items-center gap-1.5"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                      <span>{s}</span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-xs text-slate-500 italic">No physical sensations or symptoms reported today</div>
+              )}
             </div>
-            <div className="text-[10px] text-slate-500">
-              {todayLog && todayLog.symptoms && todayLog.symptoms.length > 0
-                ? todayLog.symptoms.slice(0, 2).join(', ')
-                : 'No symptoms today'}
-            </div>
-          </div>
-        </div>
 
-        {/* Compact Symptoms Chips if present */}
-        {todayLog?.symptoms && todayLog.symptoms.length > 0 && (
-          <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-1.5 text-xs">
-            <span className="text-[11px] font-bold text-slate-500">Logged Symptoms:</span>
-            {todayLog.symptoms.map((s, idx) => (
-              <span
-                key={idx}
-                className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-slate-800 text-[11px] font-semibold border border-slate-200"
-              >
-                {s}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Compact Note from Partner if present */}
-        {todayLog?.customNote && (
-          <div className="p-3 bg-sky-50 border border-sky-100 rounded-xl text-xs text-sky-950 flex items-start gap-2">
-            <span className="font-bold text-sky-900 shrink-0">Note from {settings.trackerName}:</span>
-            <span className="italic font-medium">"{todayLog.customNote}"</span>
+            {/* Note from Partner if present */}
+            {todayLog.customNote && (
+              <div className="p-3.5 bg-sky-50/80 border border-sky-100 rounded-2xl text-xs sm:text-sm text-sky-950 flex items-start gap-2.5">
+                <FileText className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <span className="font-bold text-sky-900 block text-xs">Note from {settings.trackerName}:</span>
+                  <p className="italic font-medium leading-relaxed">"{todayLog.customNote}"</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -655,9 +707,6 @@ export const MaleDashboard: React.FC = () => {
               <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
                 Cycle Benchmarks & Predictability
               </h2>
-              <div className="text-[11px] text-slate-500">
-                Calculated on-device from her past {analytics.sampleSize} tracked cycles
-              </div>
             </div>
           </div>
 

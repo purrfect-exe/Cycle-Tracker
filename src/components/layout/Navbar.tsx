@@ -1,6 +1,7 @@
 import React from 'react';
 import { useCycle, AppTab } from '../../context/CycleContext';
 import { Plus, LogOut, CheckCircle2 } from 'lucide-react';
+import { PWAInstallButton } from '../common/PWAInstallButton';
 
 export const Navbar: React.FC = () => {
   const { activeTab, setActiveTab, openLogModal, userRole, signOut, currentDate, logs } = useCycle();
@@ -94,6 +95,9 @@ export const Navbar: React.FC = () => {
               )}
             </button>
           )}
+
+          {/* PWA Install Button */}
+          <PWAInstallButton />
 
           {/* Sign Out / Exit */}
           <button
