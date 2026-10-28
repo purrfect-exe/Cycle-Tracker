@@ -13,10 +13,10 @@ export default defineConfig(() => {
         registerType: 'autoUpdate',
         includeAssets: ['favicon.svg', 'icon.svg', 'apple-touch-icon.png', 'firebase-messaging-sw.js'],
         manifest: {
-          name: 'Cycle Companion - Shared Cycle & Partner Care',
-          short_name: 'Cycle Companion',
+          name: 'HerCycle Companion App',
+          short_name: 'HerCycle',
           description: 'An intimate, shared menstrual cycle tracker and partner care companion.',
-          theme_color: '#2D6A4F',
+          theme_color: '#f87e7e',
           background_color: '#FAFBF9',
           display: 'standalone',
           orientation: 'portrait-primary',
